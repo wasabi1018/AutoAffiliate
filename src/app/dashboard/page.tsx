@@ -19,6 +19,7 @@ export default async function DashboardPage() {
           <Link className="nav-link" href="/dashboard/settings">Settings</Link>
           <Link className="nav-link" href="/dashboard/connections">Connections</Link>
           <Link className="nav-link" href="/dashboard/jobs">Jobs</Link>
+          <Link className="nav-link" href="/dashboard/publishing">Publishing</Link>
           <Link className="nav-link" href="/dashboard/ranking">Ranking</Link>
           <SignOutButton />
         </div>

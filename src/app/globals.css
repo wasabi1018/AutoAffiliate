@@ -85,3 +85,7 @@ textarea { resize: vertical; }
 .reason-list { color: var(--muted); font-size: 0.84rem; margin: 0; padding-left: 18px; }
 .jobs-stack { display: grid; gap: 18px; margin-top: 32px; }
 .jobs-table-card { overflow: hidden; }
+.publishing-stack { display: grid; gap: 18px; margin-top: 32px; }
+.post-set-row { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.post-set-row.selected { border-color: var(--accent); }
+.post-set-select { align-items: center; background: transparent; border: 0; color: inherit; cursor: pointer; display: flex; gap: 18px; justify-content: space-between; padding: 4px; text-align: left; width: 100%; }

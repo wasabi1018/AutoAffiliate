@@ -84,7 +84,7 @@ async function checkRakuten(service: ReturnType<typeof adminClient>, body: Recor
   url.searchParams.set("applicationId", applicationId);
   if (affiliateId) url.searchParams.set("affiliateId", affiliateId);
 
-  const response = record(await fetchJson(url, { headers: { accessKey } }));
+  const response = record(await fetchJson(url, { headers: { accessKey, Referer: "https://autoaffiliate-orcin.vercel.app/" } }));
   if (!Array.isArray(response.items)) {
     throw new ProviderError("INVALID_RESPONSE", "Rakuten API returned an unexpected item list.");
   }

@@ -69,3 +69,9 @@ textarea { resize: vertical; }
 .preview p { margin: 8px 0 0; white-space: pre-wrap; }
 .top-actions { align-items: center; display: flex; gap: 14px; }
 @media (max-width: 760px) { .form-grid.three { grid-template-columns: 1fr; } .section-heading { display: grid; } .settings-section { padding: 18px; } }
+.connection-grid { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 32px; }
+.connection-card { display: grid; gap: 14px; }
+.connection-card h2 { margin: 0; }
+.connection-status { display: flex; flex-wrap: wrap; gap: 10px; }
+.connection-message { color: var(--muted); grid-column: 1 / -1; }
+@media (max-width: 760px) { .connection-grid { grid-template-columns: 1fr; } }

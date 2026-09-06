@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/app/dashboard/sign-out-button";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +15,32 @@ export default async function DashboardPage() {
     <div className="shell">
       <header className="container topbar">
         <span className="brand">Auto Affiliater</span>
-        <div className="top-actions"><Link className="nav-link" href="/dashboard/settings">Settings</Link><SignOutButton /></div>
+        <div className="top-actions">
+          <Link className="nav-link" href="/dashboard/settings">Settings</Link>
+          <Link className="nav-link" href="/dashboard/connections">Connections</Link>
+          <SignOutButton />
+        </div>
       </header>
       <main className="container main">
         <div className="eyebrow">Administrator dashboard</div>
-        <h1>運用基盤の準備ができました。</h1>
-        <p className="lede">現在はフェーズ1。投稿処理はまだ追加されておらず、Dry Run前提です。</p>
+        <h1>Affiliate operations, ready for safe setup.</h1>
+        <p className="lede">Phase 1 foundation and Phase 2 settings are ready. Phase 3 adds connection checks for Threads and Rakuten without publishing.</p>
         <div className="dashboard-grid">
-          <section className="card"><div className="muted">認証</div><div className="metric">接続済み</div><p className="muted">{data.user.email}</p></section>
-          <section className="card"><div className="muted">投稿モード</div><div className="metric">Dry Run</div><p className="muted">本番投稿は無効</p></section>
-          <section className="card"><div className="muted">次のフェーズ</div><div className="metric">設定UI</div><p className="muted">Threads・商品条件・テンプレート</p></section>
+          <section className="card">
+            <div className="muted">Authentication</div>
+            <div className="metric">Signed in</div>
+            <p className="muted">{data.user.email}</p>
+          </section>
+          <section className="card">
+            <div className="muted">Execution mode</div>
+            <div className="metric">Dry Run</div>
+            <p className="muted">Publishing is disabled.</p>
+          </section>
+          <section className="card">
+            <div className="muted">Current phase</div>
+            <div className="metric">Phase 3</div>
+            <p className="muted">Threads, Rakuten, validation, and provider checks.</p>
+          </section>
         </div>
       </main>
     </div>

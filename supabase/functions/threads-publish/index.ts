@@ -59,7 +59,7 @@ Deno.serve(async (request) => {
 
         const publishedResponse = await publishContainer(token, containerId);
         const postId = requiredString(record(publishedResponse).id, "post_id");
-        await service.from("post_set_posts").update({ status: "published", post_id: postId, attempt_count: attemptNo, last_error_code: null, last_error_message: null, updated_at: new Date().toISOString() }).eq("id", item.id);
+        await service.from("post_set_posts").update({ status: "published", post_id: postId, published_at: new Date().toISOString(), attempt_count: attemptNo, last_error_code: null, last_error_message: null, updated_at: new Date().toISOString() }).eq("id", item.id);
         await recordAttempt(service, item.id, attemptNo, "succeeded", "publish", { post_id: postId });
         item.status = "published";
         item.post_id = postId;

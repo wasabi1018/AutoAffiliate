@@ -11,6 +11,8 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
   const [accountId, setAccountId] = useState(accounts[0]?.id || "");
   const [parentText, setParentText] = useState("");
   const [replyText, setReplyText] = useState("");
+  const [strategy, setStrategy] = useState("");
+  const [hook, setHook] = useState("");
   const [sets, setSets] = useState(initialSets);
   const [selectedId, setSelectedId] = useState(initialSets[0]?.id || "");
   const [busy, setBusy] = useState(false);
@@ -21,7 +23,7 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
     setBusy(true);
     setMessage("");
     const supabase = createClient();
-    const { data, error } = await supabase.functions.invoke("post-set-create", { body: { account_id: accountId, parent_text: parentText, reply_text: replyText || undefined } });
+    const { data, error } = await supabase.functions.invoke("post-set-create", { body: { account_id: accountId, parent_text: parentText, reply_text: replyText || undefined, strategy: strategy || undefined, hook: hook || undefined } });
     if (error || !data?.ok) {
       setMessage(data?.message || "Could not create the post set.");
     } else {
@@ -30,6 +32,8 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
       setSelectedId(created.id);
       setParentText("");
       setReplyText("");
+      setStrategy("");
+      setHook("");
       setMessage("Post set created and is waiting for approval.");
     }
     setBusy(false);
@@ -57,7 +61,7 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
         <form className="settings-form" onSubmit={createPostSet}>
           <div className="field"><label htmlFor="publishing-account">Threads account</label><select id="publishing-account" required value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="">Select an account</option>{accounts.filter((account) => account.status === "active").map((account) => <option key={account.id} value={account.id}>{account.display_name} (@{account.handle})</option>)}</select></div>
           <div className="field"><label htmlFor="parent-text">Parent post</label><textarea id="parent-text" maxLength={500} required rows={4} value={parentText} onChange={(event) => setParentText(event.target.value)} placeholder="Write the parent post..." /></div>
-          <div className="field"><label htmlFor="reply-text">Reply (optional)</label><textarea id="reply-text" maxLength={500} rows={3} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply that will reference the published parent..." /></div>
+          <div className="form-grid three"><div className="field"><label htmlFor="publishing-strategy">Strategy (optional)</label><select id="publishing-strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="">Not set</option><option value="RANKING">RANKING</option><option value="SALE">SALE</option><option value="TRENDING">TRENDING</option></select></div><div className="field"><label htmlFor="publishing-hook">Hook label (optional)</label><input id="publishing-hook" maxLength={160} value={hook} onChange={(event) => setHook(event.target.value)} placeholder="e.g. Best pick" /></div></div><div className="field"><label htmlFor="reply-text">Reply (optional)</label><textarea id="reply-text" maxLength={500} rows={3} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply that will reference the published parent..." /></div>
           <button className="button" disabled={busy || !accountId} type="submit">{busy ? "Working..." : "Create pending post set"}</button>
         </form>
         {message ? <p className="connection-message" role="status">{message}</p> : null}

@@ -1,4 +1,4 @@
-import { adminClient, decryptSecret, fetchJson, json, ProviderError, record, requiredString, requireAdmin, safeError } from "../_shared/http.ts";
+import { adminClient, decryptSecret, fetchJson, json, ProviderError, record, requiredString, requireAdmin, safeError } from '../_shared/http.ts';
 import { withPrivateDb } from "../_shared/db.ts";
 
 type PostItem = {
@@ -18,7 +18,7 @@ Deno.serve(async (request) => {
 
   try {
     const body = record(await request.json());
-    const { service } = await requireAdmin(request);
+    const service = await authorizedService(request);
     const postSetId = requiredString(body.post_set_id, "post_set_id");
     const gate = await readGate(service, postSetId);
     if (!gate.approval_status || gate.approval_status !== "approved") throw new ProviderError("APPROVAL_REQUIRED", "Manual approval is required before publishing.", 400);
@@ -84,6 +84,13 @@ Deno.serve(async (request) => {
     return json({ ok: false, error: safe.code, message: safe.message }, safe.status);
   }
 });
+
+async function authorizedService(request: Request) {
+  const expected = Deno.env.get('DISPATCHER_SECRET');
+  const supplied = request.headers.get('x-dispatcher-secret');
+  if (expected && supplied && expected === supplied) return adminClient();
+  return (await requireAdmin(request)).service;
+}
 
 async function readGate(service: ReturnType<typeof adminClient>, postSetId: string) {
   const postSet = await service.from("post_sets").select("id, account_id, approval_status").eq("id", postSetId).maybeSingle();

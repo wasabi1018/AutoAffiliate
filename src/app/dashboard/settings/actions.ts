@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from '@/lib/supabase/server';
+import { findRakutenGenre } from '@/lib/rakuten-genres';
 import {
   accountSchema,
   filterSchema,
@@ -37,20 +38,23 @@ export async function saveAccount(_previous: ActionState, formData: FormData): P
     id: formData.get("id") || undefined,
     display_name: formData.get("display_name"),
     handle: formData.get("handle"),
-    genre: formData.get("genre"),
+    genre_id: formData.get('genre_id'),
+    operation_mode: formData.get('operation_mode'),
     status: formData.get("status"),
   });
   if (!parsed.success) return initialError;
+  const genre = findRakutenGenre(parsed.data.genre_id);
+  if (!genre) return { ok: false, message: '楽天ジャンルを選択してください。' };
   const { supabase, user } = await getAdminClient();
   if (!user) return { ok: false, message: "管理者としてログインしてください。" };
 
   try {
-    const values = { display_name: parsed.data.display_name, handle: parsed.data.handle, genre: parsed.data.genre, status: parsed.data.status, updated_at: new Date().toISOString() };
+    const values = { display_name: parsed.data.display_name, handle: parsed.data.handle, genre: genre[1], genre_id: genre[0], operation_mode: parsed.data.operation_mode, status: parsed.data.status, updated_at: new Date().toISOString() };
     const result = parsed.data.id
       ? await supabase.from("threads_accounts").update(values).eq("id", parsed.data.id).select("id, genre").single()
       : await supabase.from("threads_accounts").insert(values).select("id, genre").single();
     if (result.error || !result.data) throw result.error || new Error("account was not saved");
-    if (!parsed.data.id || parsed.data.genre) {
+    if (!parsed.data.id || genre[1]) {
       const history = await supabase.from("threads_account_genre_history").insert({ account_id: result.data.id, genre: result.data.genre, changed_by: user.id });
       if (history.error) throw history.error;
     }
@@ -121,7 +125,7 @@ export async function saveSchedule(_previous: ActionState, formData: FormData): 
 }
 
 export async function saveOperations(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = operationsSchema.safeParse({ dry_run: formData.get("dry_run") === "on", auto_posting_enabled: formData.get("auto_posting_enabled") === "on", global_stop: formData.get("global_stop") === "on", emergency_stop: formData.get("emergency_stop") === "on" });
+  const parsed = operationsSchema.safeParse({ dry_run: formData.get('dry_run') === 'on', live_posting_enabled: formData.get('live_posting_enabled') === 'on', auto_posting_enabled: formData.get('auto_posting_enabled') === 'on', global_stop: formData.get('global_stop') === 'on', emergency_stop: formData.get('emergency_stop') === 'on' });
   if (!parsed.success) return initialError;
   const { supabase, user } = await getAdminClient();
   if (!user) return { ok: false, message: "管理者としてログインしてください。" };

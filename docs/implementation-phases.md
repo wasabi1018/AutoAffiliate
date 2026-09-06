@@ -53,6 +53,8 @@ Supabase Cron（毎分）
         -> 結果と再試行状態をDBへ保存
 ```
 
+現在のアカウント別ジャンル自動投稿と段階的な運用モードは、`docs/account-genre-automation.md`を正本とする。
+
 - Cronはアカウントごとに増やさず、ディスパッチ用の1ジョブに集約する。
 - Edge Functionは短時間の外部API処理に限定する。
 - 集計や履歴計算などDB内で完結する処理はPostgres側へ寄せる。

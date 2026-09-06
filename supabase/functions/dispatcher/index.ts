@@ -1,5 +1,6 @@
-import { corsHeaders, json, ProviderError, requireAdmin, safeError } from "../_shared/http.ts";
+import { adminClient, corsHeaders, fetchJson, json, ProviderError, requireAdmin, safeError } from '../_shared/http.ts';
 import { withPrivateDb } from "../_shared/db.ts";
+import { prepareAutomaticPost, type AutomationAccount } from '../_shared/automatic-post.ts';
 
 type Job = {
   id: string;
@@ -13,6 +14,8 @@ type DispatchResult = {
   enqueued: number;
   claimed: number;
   dry_run: number;
+  pending_approval: number;
+  published: number;
   skipped: number;
   retried: number;
   dead_letter: number;
@@ -23,16 +26,19 @@ Deno.serve(async (request) => {
 
   try {
     await authorize(request);
+    const service = adminClient();
     const result = await withPrivateDb(async (db) => {
       await db.queryArray("delete from public.post_attempts where retention_expires_at < now()");
       const enqueued = await enqueueDueSchedules(db);
       const jobs = await claimJobs(db, 20);
-      const counters = { dry_run: 0, skipped: 0, retried: 0, dead_letter: 0 };
+      const counters = { dry_run: 0, pending_approval: 0, published: 0, skipped: 0, retried: 0, dead_letter: 0 };
 
       for (const job of jobs) {
         try {
-          const outcome = await processJob(db, job);
+          const outcome = await processJob(db, service, job);
           if (outcome === "dry_run") counters.dry_run += 1;
+          if (outcome === 'pending_approval') counters.pending_approval += 1;
+          if (outcome === 'published') counters.published += 1;
           if (outcome === "skipped") counters.skipped += 1;
         } catch (error) {
           const safe = safeError(error);
@@ -45,7 +51,7 @@ Deno.serve(async (request) => {
       await syncPostSetStatuses(db);
       return { enqueued, claimed: jobs.length, ...counters } satisfies DispatchResult;
     });
-    return json({ ok: true, mode: "dry_run", ...result });
+    return json({ ok: true, mode: 'staged_automation', ...result });
   } catch (error) {
     const safe = safeError(error);
     return json({ ok: false, error: safe.code, message: safe.message }, safe.status);
@@ -83,7 +89,7 @@ async function enqueueDueSchedules(db: any) {
       [schedule.account_id,
       schedule.scheduled_for,
       idempotencyKey,
-      JSON.stringify({ source: "posting_schedule", dry_run: true })],
+      JSON.stringify({ source: 'posting_schedule', preparation: 'pending' })],
     );
     if (setResult.rows.length === 0) continue;
 
@@ -93,7 +99,7 @@ async function enqueueDueSchedules(db: any) {
       schedule.account_id,
       idempotencyKey + ":job",
       schedule.scheduled_for,
-      JSON.stringify({ source: "posting_schedule", dry_run: true })],
+      JSON.stringify({ source: 'posting_schedule' })],
     );
     enqueued += 1;
   }
@@ -121,17 +127,29 @@ async function claimJobs(db: any, limit: number): Promise<Job[]> {
   }
 }
 
-async function processJob(db: any, job: Job): Promise<"dry_run" | "skipped"> {
+async function processJob(db: any, service: ReturnType<typeof adminClient>, job: Job): Promise<'dry_run' | 'pending_approval' | 'published' | 'skipped'> {
   const accountResult = await db.queryObject<{
+    id: string;
+    display_name: string;
+    genre: string;
+    genre_id: number | null;
+    operation_mode: 'semi_auto' | 'auto';
+    preferred_hook_template_id: string | null;
     status: string;
     daily_post_limit: number;
     min_post_interval_minutes: number;
     dry_run: boolean;
+    live_posting_enabled: boolean;
     auto_posting_enabled: boolean;
     global_stop: boolean;
     emergency_stop: boolean;
   }>(
-    "select a.status, a.daily_post_limit, a.min_post_interval_minutes, coalesce(s.dry_run, true) as dry_run, coalesce(s.auto_posting_enabled, false) as auto_posting_enabled, coalesce(s.global_stop, false) as global_stop, coalesce(s.emergency_stop, false) as emergency_stop from public.threads_accounts a left join public.app_settings s on s.id = true where a.id = $1",
+    `select a.id, a.display_name, a.genre, a.genre_id, a.operation_mode, a.preferred_hook_template_id,
+      a.status, a.daily_post_limit, a.min_post_interval_minutes,
+      coalesce(s.dry_run, true) as dry_run, coalesce(s.live_posting_enabled, false) as live_posting_enabled,
+      coalesce(s.auto_posting_enabled, false) as auto_posting_enabled,
+      coalesce(s.global_stop, false) as global_stop, coalesce(s.emergency_stop, false) as emergency_stop
+    from public.threads_accounts a left join public.app_settings s on s.id = true where a.id = $1`,
     [job.account_id],
   );
   const account = accountResult.rows[0];
@@ -139,8 +157,6 @@ async function processJob(db: any, job: Job): Promise<"dry_run" | "skipped"> {
 
   if (account.status !== "active") return skipJob(db, job, "ACCOUNT_NOT_ACTIVE");
   if (account.global_stop || account.emergency_stop) return skipJob(db, job, "POSTING_STOPPED");
-  if (!account.dry_run) return skipJob(db, job, "LIVE_POSTING_NOT_IMPLEMENTED");
-
   const dailyCount = await db.queryObject<{ count: number }>(
     "select count(*)::int as count from public.posting_jobs where account_id = $1 and status in ('dry_run', 'succeeded') and finished_at >= date_trunc('day', now())",
     [job.account_id],
@@ -167,19 +183,63 @@ async function processJob(db: any, job: Job): Promise<"dry_run" | "skipped"> {
     return "skipped";
   }
 
+  await prepareAutomaticPost(service, job.post_set_id, account as AutomationAccount);
   const attemptNo = job.attempt_count + 1;
+  if (account.dry_run) {
+    await completeJob(db, job, attemptNo, 'dry_run', { mode: 'dry_run', publishing: false, content_prepared: true });
+    return 'dry_run';
+  }
+
+  const automaticPublishingAllowed = account.operation_mode === 'auto'
+    && account.live_posting_enabled
+    && account.auto_posting_enabled;
+  if (!automaticPublishingAllowed) {
+    await completeJob(db, job, attemptNo, 'succeeded', {
+      mode: 'pending_approval', publishing: false, content_prepared: true,
+      reason: account.operation_mode === 'semi_auto' ? 'ACCOUNT_SEMI_AUTO' : 'AUTO_PUBLISHING_GATE_OFF',
+    });
+    return 'pending_approval';
+  }
+
+  const approval = await service.from('post_sets').update({
+    approval_status: 'approved', approved_at: new Date().toISOString(), approved_by: null, updated_at: new Date().toISOString(),
+  }).eq('id', job.post_set_id).eq('approval_status', 'pending');
+  if (approval.error) throw new ProviderError('STORAGE_ERROR', '自動投稿を承認状態にできませんでした。', 500);
+  await invokeThreadsPublish(job.post_set_id);
+  await completeJob(db, job, attemptNo, 'succeeded', { mode: 'auto', publishing: true, content_prepared: true });
+  return 'published';
+}
+
+async function completeJob(db: any, job: Job, attemptNo: number, status: 'dry_run' | 'succeeded', metadata: Record<string, unknown>) {
   await db.queryArray(
-    "insert into public.post_attempts (posting_job_id, attempt_no, status, response_metadata, finished_at) values ($1, $2, 'dry_run', $3::jsonb, now())",
-    [job.id,
-    attemptNo,
-    JSON.stringify({ mode: "dry_run", publishing: false })],
+    `insert into public.post_attempts (posting_job_id, attempt_no, status, response_metadata, finished_at)
+      values ($1, $2, $3, $4::jsonb, now())`,
+    [job.id, attemptNo, status, JSON.stringify(metadata)],
   );
   await db.queryArray(
-    "update public.posting_jobs set status = 'dry_run', attempt_count = $2, finished_at = now(), locked_at = null, updated_at = now(), last_error_code = null, last_error_message = null where id = $1",
-    [job.id,
-    attemptNo],
+    `update public.posting_jobs set status = $2, attempt_count = $3, finished_at = now(), locked_at = null,
+      updated_at = now(), last_error_code = null, last_error_message = null where id = $1`,
+    [job.id, status, attemptNo],
   );
-  return "dry_run";
+}
+
+async function invokeThreadsPublish(postSetId: string) {
+  const url = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const dispatcherSecret = Deno.env.get('DISPATCHER_SECRET');
+  if (!url || !serviceKey || !dispatcherSecret) throw new ProviderError('CONFIG_MISSING', '自動投稿の設定が不足しています。', 500);
+  const response = await fetchJson(`${url}/functions/v1/threads-publish`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: serviceKey,
+      'Content-Type': 'application/json',
+      'x-dispatcher-secret': dispatcherSecret,
+    },
+    body: JSON.stringify({ post_set_id: postSetId }),
+  });
+  const result = response as Record<string, unknown>;
+  if (result.ok !== true) throw new ProviderError('THREADS_PUBLISH_FAILED', 'Threadsへの自動投稿に失敗しました。', 502);
 }
 
 async function skipJob(db: any, job: Job, code: string): Promise<"skipped"> {
@@ -230,6 +290,7 @@ async function syncPostSetStatuses(db: any) {
   await db.queryArray(`
     update public.post_sets set
       status = case
+        when post_sets.approval_status = 'pending' then 'queued'
         when exists (select 1 from public.posting_jobs j where j.post_set_id = post_sets.id and j.status = 'running') then 'running'
         when exists (select 1 from public.posting_jobs j where j.post_set_id = post_sets.id and j.status = 'queued') then 'queued'
         when exists (select 1 from public.posting_jobs j where j.post_set_id = post_sets.id and j.status = 'dead_letter') then 'dead_letter'

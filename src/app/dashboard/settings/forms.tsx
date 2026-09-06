@@ -4,13 +4,14 @@ import { useActionState, useState } from "react";
 
 import { saveAccount, saveFilters, saveOperations, saveSchedule, saveStrategy, saveTemplate } from "@/app/dashboard/settings/actions";
 import type { ActionState } from "@/lib/settings/validation";
+import { RAKUTEN_GENRES } from '@/lib/rakuten-genres';
 
-type Account = { id: string; display_name: string; handle: string; genre: string; status: "active" | "paused" | "disabled" };
+type Account = { id: string; display_name: string; handle: string; genre: string; genre_id: number | null; operation_mode: 'semi_auto' | 'auto'; status: 'active' | 'paused' | 'disabled' };
 type Strategy = { ranking_weight: number; sale_weight: number; trending_weight: number };
 type Filters = { min_price: number; max_price: number | null; require_in_stock: boolean; min_review_count: number; excluded_words: string[] };
 type Template = { id: string; name: string; template_type: "hook" | "reply"; body: string; active: boolean };
 type Schedule = { account_id: string; weekdays: number[]; posting_times: string[]; timezone: string; enabled: boolean };
-type Operations = { dry_run: boolean; auto_posting_enabled: boolean; global_stop: boolean; emergency_stop: boolean };
+type Operations = { dry_run: boolean; live_posting_enabled: boolean; auto_posting_enabled: boolean; global_stop: boolean; emergency_stop: boolean };
 
 const initialState: ActionState = { ok: false, message: "" };
 const weekdays = [[0, "日"], [1, "月"], [2, "火"], [3, "水"], [4, "木"], [5, "金"], [6, "土"]] as const;
@@ -27,9 +28,20 @@ function AccountForm({ account }: { account?: Account }) {
       <div className="form-grid three">
         <div className="field"><label htmlFor={`display-name-${account?.id || "new"}`}>表示名</label><input id={`display-name-${account?.id || "new"}`} name="display_name" required maxLength={80} defaultValue={account?.display_name} /></div>
         <div className="field"><label htmlFor={`handle-${account?.id || "new"}`}>Threadsユーザーネーム</label><input id={`handle-${account?.id || "new"}`} name="handle" required pattern="[A-Za-z0-9._]{1,30}" defaultValue={account?.handle} placeholder="example_account" /></div>
-        <div className="field"><label htmlFor={`genre-${account?.id || "new"}`}>ジャンル</label><input id={`genre-${account?.id || "new"}`} name="genre" required maxLength={80} defaultValue={account?.genre} placeholder="暮らし" /></div>
+        <div className='field'>
+          <label htmlFor={`genre-${account?.id || 'new'}`}>投稿する楽天ジャンル</label>
+          <select id={`genre-${account?.id || 'new'}`} name='genre_id' required defaultValue={account?.genre_id ?? ''}>
+            <option value=''>ジャンルを選択</option>
+            {RAKUTEN_GENRES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+          <span className='field-help'>このジャンルの商品を自動選定します</span>
+        </div>
       </div>
-      <div className="form-row"><div className="field compact-field"><label htmlFor={`status-${account?.id || "new"}`}>状態</label><select id={`status-${account?.id || "new"}`} name="status" defaultValue={account?.status || "active"}><option value="active">稼働</option><option value="paused">一時停止</option><option value="disabled">無効</option></select></div><button className="button" disabled={pending} type="submit">{pending ? "保存中…" : account ? "更新" : "アカウントを追加"}</button></div>
+      <div className='form-grid two'>
+        <div className='field'><label htmlFor={`mode-${account?.id || 'new'}`}>運用モード</label><select id={`mode-${account?.id || 'new'}`} name='operation_mode' defaultValue={account?.operation_mode || 'semi_auto'}><option value='semi_auto'>半自動（承認して投稿）</option><option value='auto'>自動投稿</option></select><span className='field-help'>最初は半自動を推奨します</span></div>
+        <div className='field'><label htmlFor={`status-${account?.id || 'new'}`}>状態</label><select id={`status-${account?.id || 'new'}`} name='status' defaultValue={account?.status || 'active'}><option value='active'>稼働</option><option value='paused'>一時停止</option><option value='disabled'>無効</option></select></div>
+      </div>
+      <div className='form-row'><span /><button className='button' disabled={pending} type='submit'>{pending ? '保存中…' : account ? '更新' : 'アカウントを追加'}</button></div>
       <ActionMessage state={state} />
     </form>
   );
@@ -37,7 +49,7 @@ function AccountForm({ account }: { account?: Account }) {
 
 export function OperationsSettings({ operations }: { operations: Operations }) {
   const [state, action, pending] = useActionState(saveOperations, initialState);
-  return <section className="card settings-section"><div className="eyebrow">安全設定</div><h2>投稿モードと停止</h2><p className="muted">まずはテスト運用で確認し、準備ができてから自動投稿を許可してください。</p><form className="settings-form" action={action}><div className="toggle-list"><label className="checkbox"><input name="dry_run" type="checkbox" defaultChecked={operations.dry_run} /> テスト運用（推奨）</label><label className="checkbox"><input name="auto_posting_enabled" type="checkbox" defaultChecked={operations.auto_posting_enabled} /> 自動投稿を許可</label><label className="checkbox"><input name="global_stop" type="checkbox" defaultChecked={operations.global_stop} /> すべての自動処理を停止</label><label className="checkbox danger-toggle"><input name="emergency_stop" type="checkbox" defaultChecked={operations.emergency_stop} /> 緊急停止</label></div><div className="form-row"><span /><button className="button" disabled={pending} type="submit">{pending ? "保存中…" : "安全設定を保存"}</button></div><ActionMessage state={state} /></form></section>;
+  return <section className='card settings-section'><div className='eyebrow'>安全設定</div><h2>投稿モードと停止</h2><p className='muted'>最初はテスト運用と半自動で確認し、準備ができてから自動投稿を許可してください。</p><form className='settings-form' action={action}><div className='toggle-list'><label className='checkbox'><input name='dry_run' type='checkbox' defaultChecked={operations.dry_run} /> テスト運用（Threadsへ投稿しない）</label><label className='checkbox'><input name='live_posting_enabled' type='checkbox' defaultChecked={operations.live_posting_enabled} /> 承認後の本番投稿を許可</label><label className='checkbox'><input name='auto_posting_enabled' type='checkbox' defaultChecked={operations.auto_posting_enabled} /> 自動モードの本番投稿を許可</label><label className='checkbox'><input name='global_stop' type='checkbox' defaultChecked={operations.global_stop} /> すべての自動処理を停止</label><label className='checkbox danger-toggle'><input name='emergency_stop' type='checkbox' defaultChecked={operations.emergency_stop} /> 緊急停止</label></div><div className='form-row'><span /><button className='button' disabled={pending} type='submit'>{pending ? '保存中…' : '安全設定を保存'}</button></div><ActionMessage state={state} /></form></section>;
 }
 
 export function AccountSettings({ accounts }: { accounts: Account[] }) {

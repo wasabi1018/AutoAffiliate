@@ -15,7 +15,8 @@ export const accountSchema = z.object({
   id: z.string().uuid().optional(),
   display_name: z.string().trim().min(1).max(80),
   handle: z.string().trim().regex(/^[A-Za-z0-9._]{1,30}$/, "Threadsユーザーネームの形式が不正です"),
-  genre: z.string().trim().min(1).max(80),
+  genre_id: z.coerce.number().int().positive(),
+  operation_mode: z.enum(['semi_auto', 'auto']),
   status: z.enum(["active", "paused", "disabled"]),
 });
 
@@ -56,6 +57,7 @@ export const scheduleSchema = z.object({
 
 export const operationsSchema = z.object({
   dry_run: z.boolean(),
+  live_posting_enabled: z.boolean(),
   auto_posting_enabled: z.boolean(),
   global_stop: z.boolean(),
   emergency_stop: z.boolean(),

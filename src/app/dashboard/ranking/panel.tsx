@@ -55,7 +55,7 @@ export function RankingPanel({ accounts, latestRun }: { accounts: Account[]; lat
         <form className="settings-form" onSubmit={executeDryRun}>
           <div className="form-grid three">
             <div className="field"><label htmlFor="ranking-account">アカウント（任意）</label><select id="ranking-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="">共通設定を使用</option>{accounts.filter((account) => account.status === "active").map((account) => <option key={account.id} value={account.id}>{account.display_name} (@{account.handle})</option>)}</select></div>
-            <div className="field"><label htmlFor="ranking-genre-id">楽天ジャンルID（任意）</label><input id="ranking-genre-id" inputMode="numeric" pattern="[0-9]*" value={genreId} onChange={(event) => setGenreId(event.target.value)} placeholder="すべてのジャンル" /></div>
+            <div className='field'><label htmlFor='ranking-genre-id'>楽天ジャンルID（任意）</label><input id='ranking-genre-id' inputMode='numeric' pattern='[0-9]*' value={genreId} onChange={(event) => setGenreId(event.target.value)} placeholder='アカウント設定のジャンル' /><span className='field-help'>未入力なら選択アカウントのジャンルを使用</span></div>
             <div className="field"><label htmlFor="ranking-result-limit">表示件数</label><input id="ranking-result-limit" type="number" min="1" max="50" value={resultLimit} onChange={(event) => setResultLimit(event.target.value)} /></div>
           </div>
           <button className="button" disabled={busy} type="submit">{busy ? "評価中…" : "商品候補を評価"}</button>

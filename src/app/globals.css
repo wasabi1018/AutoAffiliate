@@ -163,6 +163,9 @@ textarea { resize: vertical; }
 .post-set-row { border: 1px solid var(--line); border-radius: 11px; padding: 12px; }
 .post-set-row.selected { border-color: #b9b3ff; box-shadow: 0 0 0 3px var(--accent-soft); }
 .post-set-select { display: grid; width: 100%; grid-template-columns: minmax(140px, 1fr) auto auto; align-items: center; gap: 12px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 3px; text-align: left; }
+.post-review { display: grid; gap: 12px; border-top: 1px solid var(--line); margin-top: 12px; padding-top: 14px; }
+.post-preview { border: 1px solid var(--line); border-radius: 10px; background: #f9fafb; padding: 13px; }
+.post-preview p { margin: 7px 0; white-space: pre-wrap; }
 .analytics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .metric { margin-top: 8px; font-size: 1.75rem; font-weight: 780; letter-spacing: -0.035em; }
 .metric-unit { color: var(--muted); font-size: 0.78rem; font-weight: 550; }

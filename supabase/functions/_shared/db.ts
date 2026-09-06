@@ -1,4 +1,4 @@
-import { Client } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
+import { Client } from "jsr:@db/postgres@0.19.5";
 
 export async function withPrivateDb<T>(callback: (client: Client) => Promise<T>) {
   const connectionString = Deno.env.get("SUPABASE_DB_URL");

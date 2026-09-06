@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
     <div className="shell">
       <header className="container topbar">
         <span className="brand">Auto Affiliater</span>
-        <SignOutButton />
+        <div className="top-actions"><Link className="nav-link" href="/dashboard/settings">Settings</Link><SignOutButton /></div>
       </header>
       <main className="container main">
         <div className="eyebrow">Administrator dashboard</div>

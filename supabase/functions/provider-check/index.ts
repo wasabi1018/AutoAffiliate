@@ -102,7 +102,7 @@ async function checkRakuten(service: ReturnType<typeof adminClient>, body: Recor
   });
   await withPrivateDb((db) => db.queryArray(
     "insert into private.integration_secrets (provider, ciphertext, key_version) values ('rakuten', decode($1, 'hex'), 1) on conflict (provider) do update set ciphertext = excluded.ciphertext, key_version = excluded.key_version, updated_at = now()",
-    encrypted.slice(2),
+    [encrypted.slice(2)],
   ));
 
   const first = items.length > 0 ? record(items[0]) : null;

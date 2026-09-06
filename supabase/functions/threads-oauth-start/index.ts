@@ -15,7 +15,7 @@ Deno.serve(async (request) => {
     const state = randomState();
     await withPrivateDb(async (db) => db.queryArray(
       "insert into private.oauth_states (state_hash, provider, expires_at) values ($1, 'threads', now() + interval '10 minutes')",
-      await sha256(state),
+      [await sha256(state)],
     ));
 
     const url = new URL("https://threads.net/oauth/authorize");

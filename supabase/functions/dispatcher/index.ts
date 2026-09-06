@@ -80,20 +80,20 @@ async function enqueueDueSchedules(db: any) {
     const idempotencyKey = schedule.account_id + ":" + schedule.slot_key;
     const setResult = await db.queryObject<{ id: string }>(
       "insert into public.post_sets (account_id, scheduled_for, status, idempotency_key, content_payload) values ($1, $2, 'queued', $3, $4::jsonb) on conflict (idempotency_key) do nothing returning id",
-      schedule.account_id,
+      [schedule.account_id,
       schedule.scheduled_for,
       idempotencyKey,
-      JSON.stringify({ source: "posting_schedule", dry_run: true }),
+      JSON.stringify({ source: "posting_schedule", dry_run: true })],
     );
     if (setResult.rows.length === 0) continue;
 
     await db.queryArray(
       "insert into public.posting_jobs (post_set_id, account_id, job_key, scheduled_for, payload) values ($1, $2, $3, $4, $5::jsonb) on conflict (job_key) do nothing",
-      setResult.rows[0].id,
+      [setResult.rows[0].id,
       schedule.account_id,
       idempotencyKey + ":job",
       schedule.scheduled_for,
-      JSON.stringify({ source: "posting_schedule", dry_run: true }),
+      JSON.stringify({ source: "posting_schedule", dry_run: true })],
     );
     enqueued += 1;
   }
@@ -105,12 +105,12 @@ async function claimJobs(db: any, limit: number): Promise<Job[]> {
   try {
     const result = await db.queryObject<Job>(
       "select id, post_set_id, account_id, attempt_count, max_attempts from public.posting_jobs where status = 'queued' and next_attempt_at <= now() and scheduled_for <= now() order by scheduled_for asc, created_at asc for update skip locked limit $1",
-      limit,
+      [limit],
     );
     for (const job of result.rows) {
       await db.queryArray(
         "update public.posting_jobs set status = 'running', locked_at = now(), started_at = coalesce(started_at, now()), updated_at = now() where id = $1",
-        job.id,
+        [job.id],
       );
     }
     await db.queryArray("commit");
@@ -132,7 +132,7 @@ async function processJob(db: any, job: Job): Promise<"dry_run" | "skipped"> {
     emergency_stop: boolean;
   }>(
     "select a.status, a.daily_post_limit, a.min_post_interval_minutes, coalesce(s.dry_run, true) as dry_run, coalesce(s.auto_posting_enabled, false) as auto_posting_enabled, coalesce(s.global_stop, false) as global_stop, coalesce(s.emergency_stop, false) as emergency_stop from public.threads_accounts a left join public.app_settings s on s.id = true where a.id = $1",
-    job.account_id,
+    [job.account_id],
   );
   const account = accountResult.rows[0];
   if (!account) throw new ProviderError("ACCOUNT_NOT_FOUND", "The scheduled account no longer exists.", 400);
@@ -143,26 +143,26 @@ async function processJob(db: any, job: Job): Promise<"dry_run" | "skipped"> {
 
   const dailyCount = await db.queryObject<{ count: number }>(
     "select count(*)::int as count from public.posting_jobs where account_id = $1 and status in ('dry_run', 'succeeded') and finished_at >= date_trunc('day', now())",
-    job.account_id,
+    [job.account_id],
   );
   if (Number(dailyCount.rows[0]?.count || 0) >= account.daily_post_limit) {
     await db.queryArray(
       "update public.posting_jobs set status = 'queued', next_attempt_at = date_trunc('day', now()) + interval '1 day', locked_at = null, updated_at = now(), last_error_code = 'DAILY_LIMIT' where id = $1",
-      job.id,
+      [job.id],
     );
     return "skipped";
   }
 
   const latest = await db.queryObject<{ finished_at: string }>(
     "select finished_at from public.posting_jobs where account_id = $1 and status in ('dry_run', 'succeeded') and finished_at is not null and finished_at + make_interval(mins => $2) > now() order by finished_at desc limit 1",
-    job.account_id,
+    [job.account_id, account.min_post_interval_minutes],
   );
   if (latest.rows[0]?.finished_at) {
     await db.queryArray(
       "update public.posting_jobs set status = 'queued', next_attempt_at = greatest(now(), $2::timestamptz + make_interval(mins => $3)), locked_at = null, updated_at = now(), last_error_code = 'MIN_INTERVAL' where id = $1",
-      job.id,
+      [job.id,
       latest.rows[0].finished_at,
-      account.min_post_interval_minutes,
+      account.min_post_interval_minutes],
     );
     return "skipped";
   }
@@ -170,14 +170,14 @@ async function processJob(db: any, job: Job): Promise<"dry_run" | "skipped"> {
   const attemptNo = job.attempt_count + 1;
   await db.queryArray(
     "insert into public.post_attempts (posting_job_id, attempt_no, status, response_metadata, finished_at) values ($1, $2, 'dry_run', $3::jsonb, now())",
-    job.id,
+    [job.id,
     attemptNo,
-    JSON.stringify({ mode: "dry_run", publishing: false }),
+    JSON.stringify({ mode: "dry_run", publishing: false })],
   );
   await db.queryArray(
     "update public.posting_jobs set status = 'dry_run', attempt_count = $2, finished_at = now(), locked_at = null, updated_at = now(), last_error_code = null, last_error_message = null where id = $1",
-    job.id,
-    attemptNo,
+    [job.id,
+    attemptNo],
   );
   return "dry_run";
 }
@@ -186,18 +186,18 @@ async function skipJob(db: any, job: Job, code: string): Promise<"skipped"> {
   const attemptNo = job.attempt_count + 1;
   await db.queryArray(
     "insert into public.post_attempts (posting_job_id, attempt_no, status, error_code, error_message, response_metadata, finished_at) values ($1, $2, 'skipped', $3, $4, $5::jsonb, now())",
-    job.id,
+    [job.id,
     attemptNo,
     code,
     "Job was skipped by a safety rule.",
-    JSON.stringify({ mode: "dry_run", publishing: false }),
+    JSON.stringify({ mode: "dry_run", publishing: false })],
   );
   await db.queryArray(
     "update public.posting_jobs set status = 'cancelled', attempt_count = $2, finished_at = now(), locked_at = null, updated_at = now(), last_error_code = $3, last_error_message = $4 where id = $1",
-    job.id,
+    [job.id,
     attemptNo,
     code,
-    "Job was skipped by a safety rule.",
+    "Job was skipped by a safety rule."],
   );
   return "skipped";
 }
@@ -209,19 +209,19 @@ async function failJob(db: any, job: Job, code: string, message: string) {
   const delay = Math.min(3600, 60 * 2 ** Math.max(0, attemptNo - 1));
   await db.queryArray(
     "insert into public.post_attempts (posting_job_id, attempt_no, status, error_code, error_message, finished_at) values ($1, $2, 'failed', $3, $4, now())",
-    job.id,
+    [job.id,
     attemptNo,
     code,
-    message.slice(0, 500),
+    message.slice(0, 500)],
   );
   await db.queryArray(
     "update public.posting_jobs set status = $2, attempt_count = $3, next_attempt_at = case when $2 = 'queued' then now() + make_interval(secs => $4) else next_attempt_at end, finished_at = case when $2 = 'dead_letter' then now() else null end, locked_at = null, updated_at = now(), last_error_code = $5, last_error_message = $6 where id = $1",
-    job.id,
+    [job.id,
     status,
     attemptNo,
     delay,
     code,
-    message.slice(0, 500),
+    message.slice(0, 500)],
   );
   return status;
 }

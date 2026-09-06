@@ -23,13 +23,13 @@ Deno.serve(async (request) => {
     const validState = await withPrivateDb(async (db) => {
       const result = await db.queryObject(
         "select state_hash from private.oauth_states where state_hash = $1 and provider = 'threads' and used_at is null and expires_at > now() for update",
-        stateHash,
+        [stateHash],
       );
       if (result.rows.length !== 1) return false;
 
       await db.queryArray(
         "update private.oauth_states set used_at = now() where state_hash = $1",
-        stateHash,
+        [stateHash],
       );
       return true;
     });
@@ -77,7 +77,7 @@ Deno.serve(async (request) => {
     const service = adminClient();
     await withPrivateDb((db) => db.queryArray(
       "insert into private.integration_secrets (provider, ciphertext, key_version) values ('threads', decode($1, 'hex'), 1) on conflict (provider) do update set ciphertext = excluded.ciphertext, key_version = excluded.key_version, updated_at = now()",
-      encrypted.slice(2),
+      [encrypted.slice(2)],
     ));
 
     const { error } = await service.from("provider_connections").upsert({

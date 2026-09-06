@@ -75,3 +75,11 @@ textarea { resize: vertical; }
 .connection-status { display: flex; flex-wrap: wrap; gap: 10px; }
 .connection-message { color: var(--muted); grid-column: 1 / -1; }
 @media (max-width: 760px) { .connection-grid { grid-template-columns: 1fr; } }
+.ranking-stack { display: grid; gap: 18px; margin-top: 32px; }
+.ranking-results { overflow: hidden; }
+.ranking-table-wrap { overflow-x: auto; }
+.ranking-table { border-collapse: collapse; min-width: 900px; width: 100%; }
+.ranking-table th, .ranking-table td { border-bottom: 1px solid var(--line); padding: 12px 10px; text-align: left; vertical-align: top; }
+.ranking-table th { color: var(--muted); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.ranking-table a { color: var(--accent-dark); font-weight: 700; }
+.reason-list { color: var(--muted); font-size: 0.84rem; margin: 0; padding-left: 18px; }

@@ -176,7 +176,11 @@ async function fetchRanking(credentials: { applicationId: string; accessKey: str
   url.searchParams.set("page", String(options.page));
   if (options.genreId !== null) url.searchParams.set("genreId", String(options.genreId));
   if (credentials.affiliateId) url.searchParams.set("affiliateId", credentials.affiliateId);
-  return record(await fetchJson(url, { headers: { accessKey: credentials.accessKey, Referer: "https://autoaffiliate-orcin.vercel.app/" } }));
+  return record(await fetchJson(url, { headers: {
+    accessKey: credentials.accessKey,
+    Origin: "https://autoaffiliate-orcin.vercel.app",
+    Referer: "https://autoaffiliate-orcin.vercel.app/",
+  } }));
 }
 
 function normalizeItems(value: unknown, genreId: number | null): NormalizedItem[] {

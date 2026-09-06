@@ -37,6 +37,7 @@ Deno.serve(async (request) => {
     const body = record(await request.json());
     const { service } = await requireAdmin(request);
     const accountId = parseOptionalUuid(body.account_id, "account_id");
+    await assertActiveAccount(service, accountId);
     const genreId = parseOptionalPositiveInt(body.genre_id, "genre_id");
     const page = parsePositiveInt(body.page, "page", 1, 34);
     const resultLimit = parsePositiveInt(body.result_limit, "result_limit", 1, 50);
@@ -52,7 +53,7 @@ Deno.serve(async (request) => {
       provider: "rakuten",
       genre_id: genreId,
       source_last_build_date: typeof response.lastBuildDate === "string" ? response.lastBuildDate : null,
-      request_params: { genre_id: genreId, page, result_limit: resultLimit },
+      request_params: { account_id: accountId, genre_id: genreId, page, result_limit: resultLimit },
       item_count: items.length,
     }).select("id").single();
     if (historyResult.error || !historyResult.data) throw new ProviderError("STORAGE_ERROR", "Could not save ranking history.", 500);
@@ -217,6 +218,15 @@ async function readWeights(service: ReturnType<typeof adminClient>, accountId: s
     if (accountResult.data) return accountResult.data as RankingWeights;
   }
   return (globalResult.data || { ranking_weight: 60, sale_weight: 20, trending_weight: 20 }) as RankingWeights;
+}
+
+async function assertActiveAccount(service: ReturnType<typeof adminClient>, accountId: string | null) {
+  if (!accountId) return;
+  const result = await service.from("threads_accounts").select("id, status").eq("id", accountId).maybeSingle();
+  if (result.error) throw new ProviderError("STORAGE_ERROR", "Could not load the strategy account.", 500);
+  if (!result.data || result.data.status !== "active") {
+    throw new ProviderError("ACCOUNT_NOT_ACTIVE", "The strategy account is not active.", 400);
+  }
 }
 
 function parseOptionalUuid(value: unknown, name: string) {

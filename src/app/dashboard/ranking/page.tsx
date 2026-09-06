@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RankingPanel } from "@/app/dashboard/ranking/panel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "商品選定" };
 
 type Account = { id: string; display_name: string; handle: string; status: string };
 type Candidate = {
@@ -62,11 +63,11 @@ export default async function RankingPage() {
   }
 
   return (
-    <main className="container main ranking-page">
-      <div className="eyebrow">Phase 8 - Selection strategies</div>
-      <h1>Product selection dry run</h1>
-      <p className="lede">Evaluate RANKING, API-backed SALE evidence, and persistent TRENDING movement without creating a post.</p>
-      {historyResult.error || accountsResult.error ? <p className="error" role="alert">Ranking data could not be loaded. Apply the Phase 8 migration and reload.</p> : null}
+    <main className="dashboard-main ranking-page">
+      <div className="eyebrow">運用</div>
+      <h1>商品選定</h1>
+      <p className="lede">楽天の商品候補を取得し、設定した条件と戦略で投稿に向く商品を評価します。</p>
+      {historyResult.error || accountsResult.error ? <p className="error notice" role="alert">商品候補を読み込めませんでした。接続状態を確認して再読み込みしてください。</p> : null}
       <RankingPanel accounts={(accountsResult.data || []) as Account[]} latestRun={latestRun} />
     </main>
   );

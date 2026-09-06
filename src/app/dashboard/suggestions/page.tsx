@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SuggestionsPanel } from "@/app/dashboard/suggestions/panel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "AI提案" };
 
 type Account = { id: string; display_name: string; handle: string; status: string };
 type Run = { id: string; requested_account_id: string | null; period_start: string; period_end: string; model: string | null; status: string; input_tokens: number | null; output_tokens: number | null; estimated_cost_usd: number | null; error_message: string | null; created_at: string };
@@ -17,11 +18,11 @@ export default async function SuggestionsPage() {
   ]);
 
   return (
-    <main className="container main suggestions-page">
-      <div className="eyebrow">Phase 9 - AI Suggest</div>
+    <main className="dashboard-main suggestions-page">
+      <div className="eyebrow">改善</div>
       <h1>運用改善の提案</h1>
-      <p className="lede">集計済みのInsightsだけをAIに渡し、戦略配分・投稿時間・テンプレート傾向の改善案を作成します。提案は承認するまで設定へ反映されません。</p>
-      {accountsResult.error || runsResult.error || suggestionsResult.error ? <p className="error" role="alert">AI suggestions could not be loaded. Apply the Phase 9 migration and reload.</p> : null}
+      <p className="lede">集計済みの成果データから、戦略配分・投稿時間・投稿文の改善案を作成します。提案は承認するまで設定へ反映されません。</p>
+      {accountsResult.error || runsResult.error || suggestionsResult.error ? <p className="error notice" role="alert">AI提案を読み込めませんでした。しばらくしてから再読み込みしてください。</p> : null}
       <SuggestionsPanel accounts={(accountsResult.data || []) as Account[]} initialRuns={(runsResult.data || []) as Run[]} initialSuggestions={(suggestionsResult.data || []) as Suggestion[]} />
     </main>
   );

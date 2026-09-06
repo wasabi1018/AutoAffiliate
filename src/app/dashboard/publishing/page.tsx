@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PublishingPanel } from "@/app/dashboard/publishing/panel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "投稿管理" };
 
 type Account = { id: string; display_name: string; handle: string; status: string };
 type PostSet = { id: string; account_id: string; status: string; approval_status: "pending" | "approved" | "rejected"; created_at: string };
@@ -15,11 +16,11 @@ export default async function PublishingPage() {
   ]);
 
   return (
-    <main className="container main publishing-page">
-      <div className="eyebrow">Phase 6 - Publishing</div>
-      <h1>Approved Threads posts</h1>
-      <p className="lede">Create a parent post and optional reply, review it, and approve it. Live publishing is blocked until every safety gate is explicitly enabled.</p>
-      {accountsResult.error || setsResult.error ? <p className="error" role="alert">Publishing data could not be loaded. Apply the Phase 6 migration and reload.</p> : null}
+    <main className="dashboard-main publishing-page">
+      <div className="eyebrow">運用</div>
+      <h1>投稿管理</h1>
+      <p className="lede">投稿文を作成し、内容を確認してから承認・公開します。</p>
+      {accountsResult.error || setsResult.error ? <p className="error notice" role="alert">投稿データを読み込めませんでした。しばらくしてから再読み込みしてください。</p> : null}
       <PublishingPanel accounts={(accountsResult.data || []) as Account[]} initialSets={(setsResult.data || []) as PostSet[]} />
     </main>
   );

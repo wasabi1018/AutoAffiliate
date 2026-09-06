@@ -8,17 +8,17 @@ export default function HomePage() {
         <Link className="nav-link" href="/login">管理者ログイン</Link>
       </header>
       <main className="container main">
-        <section className="hero">
-          <div className="eyebrow">Phase 1 · Foundation</div>
-          <h1>安全な投稿運用のための基盤。</h1>
+        <section className="hero landing-hero">
+          <div className="eyebrow">投稿運用を、ひとつの画面で</div>
+          <h1>Threads運用を<br />もっとシンプルに。</h1>
           <p className="lede">
-            Threadsと楽天アフィリエイトの運用を、管理者1名のための安全な管理画面から始めます。
-            現在はDry Runを前提としたプロジェクト基盤です。
+            商品選定から投稿、成果の振り返りまでをまとめて管理できます。
+            重要な変更は確認してから反映されるため、安心して運用できます。
           </p>
-          <Link className="button" href="/login">管理画面へ進む</Link>
+          <Link className="button" href="/login">管理画面を開く</Link>
         </section>
       </main>
-      <footer className="container footer">投稿機能は初期状態で無効です。</footer>
+      <footer className="container footer">Auto Affiliater</footer>
     </div>
   );
 }

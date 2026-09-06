@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AccountSettings, FilterSettings, OperationsSettings, ScheduleSettings, StrategySettings, TemplateSettings } from "@/app/dashboard/settings/forms";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "運用設定" };
 
 type Account = { id: string; display_name: string; handle: string; genre: string; status: "active" | "paused" | "disabled" };
 type Schedule = { account_id: string; weekdays: number[]; posting_times: string[]; timezone: string; enabled: boolean };
@@ -25,11 +26,11 @@ export default async function SettingsPage() {
   const operations = operationsResult.data || { dry_run: true, auto_posting_enabled: false, global_stop: false, emergency_stop: false };
 
   return (
-    <main className="container main settings-page">
-      <div className="eyebrow">Phase 2 · Operations settings</div>
+    <main className="dashboard-main settings-page">
+      <div className="eyebrow">設定</div>
       <h1>運用設定</h1>
-      <p className="lede">投稿前に、アカウント・商品条件・文面・スケジュールを管理します。保存に失敗した場合は入力内容と管理者権限を確認してください。</p>
-      {accountsResult.error || strategyResult.error || filtersResult.error || templatesResult.error || schedulesResult.error || operationsResult.error ? <p className="error" role="alert">設定データの一部を読み込めませんでした。マイグレーション適用後に再読み込みしてください。</p> : null}
+      <p className="lede">投稿の安全設定、アカウント、スケジュール、商品条件を管理します。</p>
+      {accountsResult.error || strategyResult.error || filtersResult.error || templatesResult.error || schedulesResult.error || operationsResult.error ? <p className="error notice" role="alert">設定の一部を読み込めませんでした。しばらくしてから再読み込みしてください。</p> : null}
       <div className="settings-stack">
         <OperationsSettings operations={operations} />
         <AccountSettings accounts={accounts} />

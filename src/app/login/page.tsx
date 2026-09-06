@@ -25,8 +25,8 @@ export default function LoginPage() {
       const nextPath = new URLSearchParams(window.location.search).get("next") || "/dashboard";
       router.replace(nextPath);
       router.refresh();
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "ログインに失敗しました。");
+    } catch {
+      setError("メールアドレスまたはパスワードが正しくありません。");
     } finally {
       setIsSubmitting(false);
     }
@@ -35,14 +35,14 @@ export default function LoginPage() {
   return (
     <main className="container main">
       <section className="card auth-card">
-        <div className="eyebrow">Administrator access</div>
+        <div className="auth-brand"><span className="brand-mark" aria-hidden="true">A</span><span>Auto Affiliater</span></div>
         <h2>管理者ログイン</h2>
-        <p className="muted">公開サインアップは無効です。管理者アカウントはSupabase側で作成します。</p>
+        <p className="muted">登録済みのメールアドレスとパスワードを入力してください。</p>
         <form className="form" onSubmit={handleSubmit}>
           <div className="field"><label htmlFor="email">メールアドレス</label><input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>
           <div className="field"><label htmlFor="password">パスワード</label><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div>
           {error ? <p className="error" role="alert">{error}</p> : null}
-          <button className="button" type="submit" disabled={isSubmitting}>{isSubmitting ? "確認中…" : "ログイン"}</button>
+          <button className="button full-width" type="submit" disabled={isSubmitting}>{isSubmitting ? "ログイン中…" : "ログイン"}</button>
         </form>
       </section>
     </main>

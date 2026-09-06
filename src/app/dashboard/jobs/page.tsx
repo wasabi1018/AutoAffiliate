@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { JobsPanel } from "@/app/dashboard/jobs/panel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "実行履歴" };
 
 type Job = {
   id: string;
@@ -26,11 +27,11 @@ export default async function JobsPage() {
     .limit(50);
 
   return (
-    <main className="container main jobs-page">
-      <div className="eyebrow">Phase 5 - Dispatcher</div>
-      <h1>Scheduled jobs</h1>
-      <p className="lede">Inspect queued work and run the dispatcher in Dry Run mode. No Threads post is sent in Phase 5.</p>
-      {result.error ? <p className="error" role="alert">Jobs could not be loaded. Apply the Phase 5 migration and reload.</p> : null}
+    <main className="dashboard-main jobs-page">
+      <div className="eyebrow">運用</div>
+      <h1>実行履歴</h1>
+      <p className="lede">予約された処理の状態と、失敗した処理の再試行状況を確認します。</p>
+      {result.error ? <p className="error notice" role="alert">実行履歴を読み込めませんでした。しばらくしてから再読み込みしてください。</p> : null}
       <JobsPanel initialJobs={(result.data || []) as Job[]} />
     </main>
   );

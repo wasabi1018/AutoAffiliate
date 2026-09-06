@@ -106,7 +106,9 @@ export async function saveTemplate(_previous: ActionState, formData: FormData): 
 }
 
 export async function saveSchedule(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = scheduleSchema.safeParse({ account_id: formData.get("account_id"), weekdays: parseWeekdays(String(formData.get("weekdays") || "")), posting_times: parseList(String(formData.get("posting_times") || "")), timezone: formData.get("timezone"), enabled: formData.get("enabled") === "on" });
+  const weekdayValues = formData.getAll("weekdays");
+  const weekdays = weekdayValues.length > 1 ? weekdayValues.map(Number).filter((value) => Number.isInteger(value)) : parseWeekdays(String(weekdayValues[0] || ""));
+  const parsed = scheduleSchema.safeParse({ account_id: formData.get("account_id"), weekdays, posting_times: parseList(String(formData.get("posting_times") || "")), timezone: formData.get("timezone"), enabled: formData.get("enabled") === "on" });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message || "スケジュールの入力を確認してください。" };
   const { supabase, user } = await getAdminClient();
   if (!user) return { ok: false, message: "管理者としてログインしてください。" };

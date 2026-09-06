@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Auto Affiliater",
-  description: "Threads × 楽天アフィリエイト自動運用システム",
+  title: { default: "Auto Affiliater", template: "%s | Auto Affiliater" },
+  description: "Threadsと楽天アフィリエイトの投稿運用を管理するシステム",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

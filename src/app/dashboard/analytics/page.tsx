@@ -2,6 +2,7 @@ import { aggregateBy, comparePeriods, latestSamples, type AnalyticsMetrics, type
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "成果分析" };
 
 type Row = Record<string, unknown>;
 
@@ -34,30 +35,28 @@ export default async function AnalyticsPage() {
   const pendingJobs = (jobsResult.data || []).filter((job) => job.status === "queued" || job.status === "running").length;
 
   return (
-    <main className="container main analytics-page">
-      <div className="eyebrow">Phase 7 - Insights</div>
-      <h1>Post performance</h1>
-      <p className="lede">Review official Threads metrics over time and compare the last seven days with the previous seven days. Missing metrics stay unavailable instead of becoming zero.</p>
-      {hasError ? <p className="error" role="alert">Analytics data could not be loaded. Apply the Phase 7 migration and reload.</p> : null}
+    <main className="dashboard-main analytics-page">
+      <div className="eyebrow">改善</div>
+      <h1>成果分析</h1>
+      <p className="lede">直近7日間の投稿成果を前の7日間と比較し、改善のヒントを確認します。</p>
+      {hasError ? <p className="error notice" role="alert">分析データを読み込めませんでした。しばらくしてから再読み込みしてください。</p> : null}
       <section className="analytics-grid metrics-grid">
-        <MetricCard label="Current 7 days" metrics={comparison.current} />
-        <MetricCard label="Previous 7 days" metrics={comparison.previous} />
-        <section className="card"><div className="muted">Insights jobs waiting</div><div className="metric">{pendingJobs}</div><p className="muted">The collector runs after its scheduled window.</p></section>
+        <MetricCard label="直近7日間" metrics={comparison.current} />
+        <MetricCard label="前の7日間" metrics={comparison.previous} />
+        <section className="card"><div className="muted">集計待ち</div><div className="metric">{pendingJobs}<span className="metric-unit"> 件</span></div><p className="muted">予約時刻を過ぎると順次集計されます。</p></section>
       </section>
       <section className="card analytics-section">
-        <div className="section-heading"><div><div className="eyebrow">Breakdowns</div><h2>運用ディメンション別</h2></div><span className="muted">各投稿の最新スナップショットで集計</span></div>
+        <div className="section-heading"><div><div className="eyebrow">内訳</div><h2>成果の内訳</h2></div><span className="muted">各投稿の最新データで集計</span></div>
         <div className="breakdown-grid">
-          <Breakdown title="Account" rows={aggregateBy(current, (sample) => sample.account_name)} />
-          <Breakdown title="Genre" rows={aggregateBy(current, (sample) => sample.genre)} />
-          <Breakdown title="Strategy" rows={aggregateBy(current, (sample) => sample.strategy)} />
-          <Breakdown title="Hook" rows={aggregateBy(current, (sample) => sample.hook)} />
-          <Breakdown title="Weekday" rows={aggregateBy(current, (sample) => weekday(sample.published_at))} />
-          <Breakdown title="Hour (UTC)" rows={aggregateBy(current, (sample) => String(new Date(sample.published_at).getUTCHours()).padStart(2, "0") + ":00")} />
+          <Breakdown title="アカウント別" rows={aggregateBy(current, (sample) => sample.account_name)} />
+          <Breakdown title="ジャンル別" rows={aggregateBy(current, (sample) => sample.genre)} />
+          <Breakdown title="戦略別" rows={aggregateBy(current, (sample) => strategyLabel(sample.strategy))} />
+          <Breakdown title="曜日別" rows={aggregateBy(current, (sample) => weekday(sample.published_at))} />
         </div>
       </section>
       <section className="card analytics-section">
-        <div className="section-heading"><div><div className="eyebrow">Post detail</div><h2>投稿とInsightsの履歴</h2></div><span className="muted">{samples.length} snapshots</span></div>
-        {latest.length === 0 ? <p className="muted">No insights have been collected yet.</p> : <div className="analytics-table-wrap"><table className="analytics-table"><thead><tr><th>Post</th><th>Window</th><th>Published</th><th>Views</th><th>Likes</th><th>Replies</th><th>Shares</th><th>Product</th><th>Status</th></tr></thead><tbody>{latest.slice(0, 30).map((sample) => <tr key={`${sample.post_id}-${sample.window_label}`}><td><code>{sample.post_id.slice(0, 12)}…</code><div className="muted detail-copy">{sample.account_name}</div></td><td>{sample.window_label}</td><td>{formatDate(sample.published_at)}</td><td>{displayMetric(sample.views)}</td><td>{displayMetric(sample.likes)}</td><td>{displayMetric(sample.replies)}</td><td>{displayMetric(sample.shares)}</td><td>{products.get(posts.get(sample.post_id)?.product_id || "") || "未紐付け"}</td><td>{sample.metrics_status === "available" ? "取得済み" : sample.metrics_status === "partial" ? "一部取得" : "取得不能"}</td></tr>)}</tbody></table></div>}
+        <div className="section-heading"><div><div className="eyebrow">投稿別</div><h2>最近の投稿成果</h2></div><span className="muted">最大30件</span></div>
+        {latest.length === 0 ? <div className="empty-state"><strong>分析データはまだありません</strong><p>投稿後に成果データが集計されると、ここに表示されます。</p></div> : <div className="analytics-table-wrap"><table className="analytics-table"><thead><tr><th>投稿</th><th>公開日時</th><th>表示</th><th>いいね</th><th>返信</th><th>シェア</th><th>商品</th><th>取得状態</th></tr></thead><tbody>{latest.slice(0, 30).map((sample) => <tr key={`${sample.post_id}-${sample.window_label}`}><td><code>{sample.post_id.slice(0, 12)}…</code><div className="muted detail-copy">{sample.account_name}</div></td><td>{formatDate(sample.published_at)}</td><td>{displayMetric(sample.views)}</td><td>{displayMetric(sample.likes)}</td><td>{displayMetric(sample.replies)}</td><td>{displayMetric(sample.shares)}</td><td>{products.get(posts.get(sample.post_id)?.product_id || "") || "未設定"}</td><td>{sample.metrics_status === "available" ? "取得済み" : sample.metrics_status === "partial" ? "一部取得" : "未取得"}</td></tr>)}</tbody></table></div>}
       </section>
     </main>
   );
@@ -69,7 +68,7 @@ function toSample(snapshot: Row, posts: Map<string, Row>, accounts: Map<string, 
   const account = accounts.get(String(post.account_id));
   return [{
     post_id: String(snapshot.post_id),
-    account_name: typeof account?.display_name === "string" ? account.display_name : "Unknown account",
+    account_name: typeof account?.display_name === "string" ? account.display_name : "不明なアカウント",
     genre: typeof account?.genre === "string" ? account.genre : "未設定",
     strategy: typeof post.strategy === "string" ? post.strategy : null,
     hook: typeof post.hook === "string" ? post.hook : null,
@@ -101,13 +100,15 @@ function formatDate(value: string) {
 }
 
 function weekday(value: string) {
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(value).getUTCDay()];
+  return ["日", "月", "火", "水", "木", "金", "土"][new Date(value).getUTCDay()] + "曜日";
 }
 
+function strategyLabel(value: string | null) { return value === "RANKING" ? "ランキング" : value === "SALE" ? "セール" : value === "TRENDING" ? "トレンド" : "未設定"; }
+
 function MetricCard({ label, metrics }: { label: string; metrics: AnalyticsMetrics }) {
-  return <section className="card"><div className="muted">{label}</div><div className="metric">{displayMetric(metrics.views)} <span className="metric-unit">views</span></div><p className="muted">Likes {displayMetric(metrics.likes)} ・ Replies {displayMetric(metrics.replies)} ・ Shares {displayMetric(metrics.shares)}</p></section>;
+  return <section className="card"><div className="muted">{label}</div><div className="metric">{displayMetric(metrics.views)} <span className="metric-unit">表示</span></div><p className="muted">いいね {displayMetric(metrics.likes)} ・ 返信 {displayMetric(metrics.replies)} ・ シェア {displayMetric(metrics.shares)}</p></section>;
 }
 
 function Breakdown({ title, rows }: { title: string; rows: Array<{ dimension: string; posts: number; views: number | null; engagement: number | null }> }) {
-  return <div className="breakdown"><h3>{title}</h3>{rows.length === 0 ? <p className="muted">No data</p> : <table className="mini-table"><thead><tr><th>Dimension</th><th>Posts</th><th>Views</th><th>Engagement</th></tr></thead><tbody>{rows.slice(0, 8).map((row) => <tr key={row.dimension}><td>{row.dimension.length > 28 ? row.dimension.slice(0, 28) + "…" : row.dimension}</td><td>{row.posts}</td><td>{displayMetric(row.views)}</td><td>{displayMetric(row.engagement)}</td></tr>)}</tbody></table>}</div>;
+  return <div className="breakdown"><h3>{title}</h3>{rows.length === 0 ? <p className="muted">データなし</p> : <table className="mini-table"><thead><tr><th>項目</th><th>投稿</th><th>表示</th><th>反応</th></tr></thead><tbody>{rows.slice(0, 8).map((row) => <tr key={row.dimension}><td>{row.dimension.length > 28 ? row.dimension.slice(0, 28) + "…" : row.dimension}</td><td>{row.posts}</td><td>{displayMetric(row.views)}</td><td>{displayMetric(row.engagement)}</td></tr>)}</tbody></table>}</div>;
 }

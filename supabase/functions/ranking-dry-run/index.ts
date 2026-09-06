@@ -36,12 +36,13 @@ Deno.serve(async (request) => {
   try {
     const body = record(await request.json());
     const { service } = await requireAdmin(request);
+    const accountId = parseOptionalUuid(body.account_id, "account_id");
     const genreId = parseOptionalPositiveInt(body.genre_id, "genre_id");
     const page = parsePositiveInt(body.page, "page", 1, 34);
     const resultLimit = parsePositiveInt(body.result_limit, "result_limit", 1, 50);
 
     const filters = await readFilters(service);
-    const weights = await readWeights(service);
+    const weights = await readWeights(service, accountId);
     const credentials = await readRakutenCredentials();
     const response = await fetchRanking(credentials, { genreId, page });
     const items = normalizeItems(response.items, genreId);
@@ -77,6 +78,11 @@ Deno.serve(async (request) => {
       }, { onConflict: "provider,external_item_code" }).select("id").single();
       if (productResult.error || !productResult.data) throw new ProviderError("STORAGE_ERROR", "Could not save a product.", 500);
 
+      const historyResultForProduct = await service.from("product_snapshots").select("rank, captured_at").eq("product_id", productResult.data.id).neq("ranking_history_id", historyResult.data.id).order("captured_at", { ascending: true }).limit(8);
+      if (historyResultForProduct.error) throw new ProviderError("STORAGE_ERROR", "Could not load product rank history.", 500);
+      const rankHistory = (historyResultForProduct.data || []).map((point) => ({ captured_at: point.captured_at, rank: point.rank }));
+      rankHistory.push({ captured_at: new Date().toISOString(), rank: item.rank });
+
       const snapshotResult = await service.from("product_snapshots").insert({
         ranking_history_id: historyResult.data.id,
         product_id: productResult.data.id,
@@ -95,7 +101,7 @@ Deno.serve(async (request) => {
       }).select("id").single();
       if (snapshotResult.error || !snapshotResult.data) throw new ProviderError("STORAGE_ERROR", "Could not save a product snapshot.", 500);
 
-      const evaluation = evaluateRankingProduct(item, filters, weights, maxRank);
+      const evaluation = evaluateRankingProduct(item, filters, weights, maxRank, new Date(), rankHistory);
       const evaluationResult = await service.from("product_selection_evaluations").insert({
         ranking_history_id: historyResult.data.id,
         snapshot_id: snapshotResult.data.id,
@@ -104,6 +110,8 @@ Deno.serve(async (request) => {
         ranking_score: evaluation.ranking_score,
         sale_score: evaluation.sale_score,
         trending_score: evaluation.trending_score,
+        selected_strategy: evaluation.selected_strategy,
+        strategy_evidence: evaluation.strategy_evidence,
         reasons: evaluation.reasons,
       });
       if (evaluationResult.error) throw new ProviderError("STORAGE_ERROR", "Could not save a product evaluation.", 500);
@@ -121,6 +129,7 @@ Deno.serve(async (request) => {
         eligible: evaluation.eligible,
         score: evaluation.score,
         reasons: evaluation.reasons,
+        selected_strategy: evaluation.selected_strategy,
       });
     }
 
@@ -199,10 +208,21 @@ async function readFilters(service: ReturnType<typeof adminClient>): Promise<Ran
   return result.data || { min_price: 0, max_price: null, require_in_stock: true, min_review_count: 0, excluded_words: [] };
 }
 
-async function readWeights(service: ReturnType<typeof adminClient>): Promise<RankingWeights> {
-  const result = await service.from("strategy_settings").select("ranking_weight, sale_weight, trending_weight").eq("id", true).maybeSingle();
-  if (result.error) throw new ProviderError("STORAGE_ERROR", "Could not load selection strategy.", 500);
-  return result.data || { ranking_weight: 60, sale_weight: 20, trending_weight: 20 };
+async function readWeights(service: ReturnType<typeof adminClient>, accountId: string | null): Promise<RankingWeights> {
+  const globalResult = await service.from("strategy_settings").select("ranking_weight, sale_weight, trending_weight").eq("id", true).maybeSingle();
+  if (globalResult.error) throw new ProviderError("STORAGE_ERROR", "Could not load selection strategy.", 500);
+  if (accountId) {
+    const accountResult = await service.from("account_strategy_settings").select("ranking_weight, sale_weight, trending_weight").eq("account_id", accountId).maybeSingle();
+    if (accountResult.error) throw new ProviderError("STORAGE_ERROR", "Could not load account selection strategy.", 500);
+    if (accountResult.data) return accountResult.data as RankingWeights;
+  }
+  return (globalResult.data || { ranking_weight: 60, sale_weight: 20, trending_weight: 20 }) as RankingWeights;
+}
+
+function parseOptionalUuid(value: unknown, name: string) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^[0-9a-f-]{36}$/i.test(value)) throw new ProviderError("INVALID_INPUT", name + " is invalid.", 400);
+  return value;
 }
 
 function parsePositiveInt(value: unknown, name: string, fallback: number, max: number) {

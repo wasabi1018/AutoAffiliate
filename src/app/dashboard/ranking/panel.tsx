@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
+type Account = { id: string; display_name: string; handle: string; status: string };
 type Candidate = {
   product_id: string;
   rank: number;
@@ -16,20 +17,14 @@ type Candidate = {
   eligible: boolean;
   score: number;
   reasons: string[];
+  selected_strategy: "RANKING" | "SALE" | "TRENDING";
 };
-
-type Run = {
-  id: string;
-  captured_at: string;
-  item_count: number;
-  genre_id: number | null;
-  candidates: Candidate[];
-};
-
+type Run = { id: string; captured_at: string; item_count: number; genre_id: number | null; candidates: Candidate[] };
 type FunctionRun = Omit<Run, "id" | "captured_at" | "genre_id"> & { ok: boolean; ranking_history_id: string; message?: string };
 
-export function RankingPanel({ latestRun }: { latestRun: Run | null }) {
+export function RankingPanel({ accounts, latestRun }: { accounts: Account[]; latestRun: Run | null }) {
   const [run, setRun] = useState<Run | null>(latestRun);
+  const [accountId, setAccountId] = useState("");
   const [genreId, setGenreId] = useState("");
   const [resultLimit, setResultLimit] = useState("20");
   const [busy, setBusy] = useState(false);
@@ -41,7 +36,7 @@ export function RankingPanel({ latestRun }: { latestRun: Run | null }) {
     setMessage("");
     const supabase = createClient();
     const { data, error } = await supabase.functions.invoke("ranking-dry-run", {
-      body: { genre_id: genreId || undefined, result_limit: Number(resultLimit) || 20 },
+      body: { account_id: accountId || undefined, genre_id: genreId || undefined, result_limit: Number(resultLimit) || 20 },
     });
     const result = data as FunctionRun | null;
     if (error || !result?.ok) {
@@ -58,10 +53,11 @@ export function RankingPanel({ latestRun }: { latestRun: Run | null }) {
       <section className="card">
         <form className="settings-form" onSubmit={executeDryRun}>
           <div className="form-grid three">
+            <div className="field"><label htmlFor="ranking-account">Strategy account (optional)</label><select id="ranking-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="">Global weights</option>{accounts.filter((account) => account.status === "active").map((account) => <option key={account.id} value={account.id}>{account.display_name} (@{account.handle})</option>)}</select></div>
             <div className="field"><label htmlFor="ranking-genre-id">Rakuten genre ID (optional)</label><input id="ranking-genre-id" inputMode="numeric" pattern="[0-9]*" value={genreId} onChange={(event) => setGenreId(event.target.value)} placeholder="All genres" /></div>
             <div className="field"><label htmlFor="ranking-result-limit">Results to display</label><input id="ranking-result-limit" type="number" min="1" max="50" value={resultLimit} onChange={(event) => setResultLimit(event.target.value)} /></div>
           </div>
-          <button className="button" disabled={busy} type="submit">{busy ? "Running..." : "Run ranking dry run"}</button>
+          <button className="button" disabled={busy} type="submit">{busy ? "Running..." : "Run strategy dry run"}</button>
         </form>
         {message ? <p className="connection-message" role="status">{message}</p> : null}
       </section>
@@ -73,11 +69,11 @@ export function RankingPanel({ latestRun }: { latestRun: Run | null }) {
 function RankingResults({ run }: { run: Run }) {
   return (
     <section className="card ranking-results">
-      <div className="section-heading"><div><div className="eyebrow">Latest dry run</div><h2>{run.item_count} ranked items / {run.candidates.filter((candidate) => candidate.eligible).length} shown as eligible</h2></div><span className="muted">{new Date(run.captured_at).toLocaleString("en-US")}</span></div>
+      <div className="section-heading"><div><div className="eyebrow">Latest strategy dry run</div><h2>{run.item_count} ranked items / {run.candidates.filter((candidate) => candidate.eligible).length} shown as eligible</h2></div><span className="muted">{new Date(run.captured_at).toLocaleString("en-US")}</span></div>
       <div className="ranking-table-wrap">
         <table className="ranking-table">
-          <thead><tr><th>Rank</th><th>Product</th><th>Price</th><th>Score</th><th>Status</th><th>Selection reason</th></tr></thead>
-          <tbody>{run.candidates.map((candidate) => <tr key={candidate.product_id}><td>{candidate.rank}</td><td>{candidate.item_url ? <a href={candidate.item_url} rel="noreferrer" target="_blank">{candidate.name}</a> : candidate.name}</td><td>¥{candidate.price.toLocaleString("ja-JP")}</td><td>{candidate.score.toFixed(2)}</td><td><span className={candidate.eligible ? "success" : "error"}>{candidate.eligible ? "Eligible" : "Filtered out"}</span></td><td><ul className="reason-list">{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></td></tr>)}</tbody>
+          <thead><tr><th>Rank</th><th>Product</th><th>Price</th><th>Score</th><th>Strategy</th><th>Status</th><th>Selection reason</th></tr></thead>
+          <tbody>{run.candidates.map((candidate) => <tr key={candidate.product_id}><td>{candidate.rank}</td><td>{candidate.item_url ? <a href={candidate.item_url} rel="noreferrer" target="_blank">{candidate.name}</a> : candidate.name}</td><td>¥{candidate.price.toLocaleString("ja-JP")}</td><td>{candidate.score.toFixed(2)}</td><td>{candidate.selected_strategy}</td><td><span className={candidate.eligible ? "success" : "error"}>{candidate.eligible ? "Eligible" : "Filtered out"}</span></td><td><ul className="reason-list">{candidate.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></td></tr>)}</tbody>
         </table>
       </div>
     </section>

@@ -10,6 +10,7 @@ import {
   safeError,
 } from "../_shared/http.ts";
 import { withPrivateDb } from "../_shared/db.ts";
+import { rakutenItems } from "../_shared/rakuten.ts";
 import { evaluateRankingProduct, type RankingFilters, type RankingWeights } from "../_shared/scoring.ts";
 
 type NormalizedItem = {
@@ -46,7 +47,7 @@ Deno.serve(async (request) => {
     const weights = await readWeights(service, accountId);
     const credentials = await readRakutenCredentials();
     const response = await fetchRanking(credentials, { genreId, page });
-    const items = normalizeItems(response.items, genreId);
+    const items = normalizeItems(rakutenItems(response), genreId);
     if (items.length === 0) throw new ProviderError("INVALID_RESPONSE", "Rakuten returned no valid ranking items.");
 
     const historyResult = await service.from("ranking_history").insert({

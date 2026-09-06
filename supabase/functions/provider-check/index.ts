@@ -11,6 +11,7 @@ import {
   safeError,
 } from "../_shared/http.ts";
 import { withPrivateDb } from "../_shared/db.ts";
+import { rakutenItems } from "../_shared/rakuten.ts";
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -89,7 +90,8 @@ async function checkRakuten(service: ReturnType<typeof adminClient>, body: Recor
     Origin: "https://autoaffiliate-orcin.vercel.app",
     Referer: "https://autoaffiliate-orcin.vercel.app/",
   } }));
-  if (!Array.isArray(response.items)) {
+  const items = rakutenItems(response);
+  if (!items) {
     throw new ProviderError("INVALID_RESPONSE", "Rakuten API returned an unexpected item list.");
   }
 
@@ -103,10 +105,10 @@ async function checkRakuten(service: ReturnType<typeof adminClient>, body: Recor
     encrypted.slice(2),
   ));
 
-  const first = record(response.items[0]);
-  const sampleName = typeof first.itemName === "string"
+  const first = items.length > 0 ? record(items[0]) : null;
+  const sampleName = first && typeof first.itemName === "string"
     ? first.itemName
-    : typeof first.item === "object" && first.item
+    : first && typeof first.item === "object" && first.item
       ? (first.item as Record<string, unknown>).itemName
       : null;
 
@@ -124,7 +126,7 @@ async function checkRakuten(service: ReturnType<typeof adminClient>, body: Recor
   return {
     ok: true,
     provider: "rakuten",
-    item_count: response.items.length,
+    item_count: items.length,
     sample_name: sampleName || null,
   };
 }

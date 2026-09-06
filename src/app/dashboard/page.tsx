@@ -22,13 +22,14 @@ export default async function DashboardPage() {
           <Link className="nav-link" href="/dashboard/publishing">Publishing</Link>
           <Link className="nav-link" href="/dashboard/analytics">Analytics</Link>
           <Link className="nav-link" href="/dashboard/ranking">Ranking</Link>
+          <Link className="nav-link" href="/dashboard/suggestions">AI Suggest</Link>
           <SignOutButton />
         </div>
       </header>
       <main className="container main">
         <div className="eyebrow">Administrator dashboard</div>
         <h1>Affiliate operations, ready for safe setup.</h1>
-        <p className="lede">Phase 1 foundation and Phase 2 settings are ready. Phase 3 adds connection checks for Threads and Rakuten without publishing.</p>
+        <p className="lede">Phase 9 adds aggregate-only AI suggestions with a human approval gate. Publishing and configuration changes remain controlled.</p>
         <div className="dashboard-grid">
           <section className="card">
             <div className="muted">Authentication</div>
@@ -42,8 +43,8 @@ export default async function DashboardPage() {
           </section>
           <section className="card">
             <div className="muted">Current phase</div>
-            <div className="metric">Phase 3</div>
-            <p className="muted">Threads, Rakuten, validation, and provider checks.</p>
+            <div className="metric">Phase 9</div>
+            <p className="muted">Insights, strategy selection, and human-reviewed AI suggestions.</p>
           </section>
         </div>
       </main>

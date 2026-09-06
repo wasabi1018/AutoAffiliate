@@ -1,0 +1,3 @@
+-- Do not seed administrator credentials or external-service secrets.
+-- Create the local administrator with the Supabase dashboard/CLI, then insert
+-- their auth.users UUID into public.admin_users using a privileged SQL session.

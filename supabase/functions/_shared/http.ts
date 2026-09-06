@@ -66,7 +66,7 @@ export async function fetchJson(url: string, init: RequestInit = {}) {
       const status = response.status === 401 || response.status === 403 || response.status === 429
         ? response.status
         : response.status >= 500 ? 502 : 400;
-      throw new ProviderError(code, providerFailureMessage(response.status), status);
+      throw new ProviderError(code, providerFailureMessage(response.status, body), status);
     }
     return body;
   } catch (error) {
@@ -87,11 +87,22 @@ function classifyHttpStatus(status: number) {
   return status >= 500 ? "UPSTREAM_ERROR" : "BAD_REQUEST";
 }
 
-function providerFailureMessage(status: number) {
+function providerFailureMessage(status: number, body: unknown) {
+  const rakutenMessage = rakutenErrorMessage(body);
+  if (rakutenMessage) return `Rakuten API rejected the request: ${rakutenMessage}`;
   if (status === 401 || status === 403) return "The provider rejected the credentials.";
   if (status === 429) return "The provider rate limit was exceeded. Try again later.";
   if (status >= 500) return "The provider is temporarily unavailable. Try again later.";
   return "The provider rejected the request. Check the credentials and input values.";
+}
+
+function rakutenErrorMessage(body: unknown) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const errors = (body as Record<string, unknown>).errors;
+  if (!errors || typeof errors !== "object" || Array.isArray(errors)) return null;
+  const message = (errors as Record<string, unknown>).errorMessage;
+  const sanitized = typeof message === "string" ? message.replace(/[\r\n\t]+/g, " ").trim().slice(0, 160) : "";
+  return sanitized && !/https?:\/\/|accesskey|token=/i.test(sanitized) ? sanitized : null;
 }
 
 export function record(value: unknown): Record<string, unknown> {

@@ -9,9 +9,9 @@ const publicEnvSchema = z.object({
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 
-export function getPublicEnv(source: Record<string, string | undefined> = process.env): PublicEnv {
-  return publicEnvSchema.parse({
-    NEXT_PUBLIC_SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: source.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  });
+export function getPublicEnv(source: Record<string, string | undefined> = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+}): PublicEnv {
+  return publicEnvSchema.parse(source);
 }

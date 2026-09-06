@@ -39,6 +39,10 @@ export function ConnectionsPanel({ connections }: { connections: Connection[] })
     const supabase = createClient();
     const { data, error } = await supabase.functions.invoke("provider-check", { body: { provider: "threads" } });
     setMessage(error || !data?.ok ? (data?.message || "Threadsの接続確認に失敗しました。") : `Threadsの接続を確認しました：${data.username || data.display_name || "アカウント"}`);
+    if (error && !data?.message) {
+      const detail = await functionErrorMessage(error);
+      if (detail) setMessage(detail);
+    }
     setBusy(null);
   }
 
@@ -49,6 +53,10 @@ export function ConnectionsPanel({ connections }: { connections: Connection[] })
     const supabase = createClient();
     const { data, error } = await supabase.functions.invoke("provider-check", { body: { provider: "rakuten", ...rakuten } });
     setMessage(error || !data?.ok ? (data?.message || "楽天の接続確認に失敗しました。") : `楽天の接続を確認しました：${data.item_count}件の商品を取得しました。`);
+    if (error && !data?.message) {
+      const detail = await functionErrorMessage(error);
+      if (detail) setMessage(detail);
+    }
     setBusy(null);
   }
 
@@ -81,6 +89,20 @@ export function ConnectionsPanel({ connections }: { connections: Connection[] })
       {message ? <p className="connection-message" role="status">{message}</p> : null}
     </div>
   );
+}
+
+async function functionErrorMessage(error: unknown) {
+  const context = error && typeof error === "object" && "context" in error
+    ? (error as { context?: unknown }).context
+    : null;
+  if (!(context instanceof Response)) return null;
+
+  try {
+    const body = await context.clone().json() as { message?: unknown };
+    return typeof body.message === "string" && body.message.trim() ? body.message : null;
+  } catch {
+    return null;
+  }
 }
 
 function ConnectionStatus({ connection }: { connection?: Connection }) {

@@ -66,7 +66,7 @@ export async function fetchJson(url: string, init: RequestInit = {}) {
       const status = response.status === 401 || response.status === 403 || response.status === 429
         ? response.status
         : response.status >= 500 ? 502 : 400;
-      throw new ProviderError(code, "The provider request failed.", status);
+      throw new ProviderError(code, providerFailureMessage(response.status), status);
     }
     return body;
   } catch (error) {
@@ -85,6 +85,13 @@ function classifyHttpStatus(status: number) {
   if (status === 404) return "NOT_FOUND";
   if (status === 429) return "RATE_LIMITED";
   return status >= 500 ? "UPSTREAM_ERROR" : "BAD_REQUEST";
+}
+
+function providerFailureMessage(status: number) {
+  if (status === 401 || status === 403) return "The provider rejected the credentials.";
+  if (status === 429) return "The provider rate limit was exceeded. Try again later.";
+  if (status >= 500) return "The provider is temporarily unavailable. Try again later.";
+  return "The provider rejected the request. Check the credentials and input values.";
 }
 
 export function record(value: unknown): Record<string, unknown> {

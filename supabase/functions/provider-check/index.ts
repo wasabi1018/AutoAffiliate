@@ -82,10 +82,9 @@ async function checkRakuten(service: ReturnType<typeof adminClient>, body: Recor
   url.searchParams.set("format", "json");
   url.searchParams.set("formatVersion", "2");
   url.searchParams.set("applicationId", applicationId);
-  url.searchParams.set("accessKey", accessKey);
   if (affiliateId) url.searchParams.set("affiliateId", affiliateId);
 
-  const response = record(await fetchJson(url));
+  const response = record(await fetchJson(url, { headers: { accessKey } }));
   if (!Array.isArray(response.items)) {
     throw new ProviderError("INVALID_RESPONSE", "Rakuten API returned an unexpected item list.");
   }

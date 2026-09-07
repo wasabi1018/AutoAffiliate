@@ -69,16 +69,17 @@ async function enqueueDueSchedules(db: any) {
   const schedules = await db.queryObject<{ account_id: string; slot_key: string; scheduled_for: string }>(`
     select
       s.account_id,
-      to_char(now() at time zone s.timezone, 'YYYY-MM-DD') || ':' || s.weekdays[i] || ':' || s.posting_times[i]::text as slot_key,
+      to_char(now() at time zone s.timezone, 'YYYY-MM-DD') || ':' || selected_weekday.weekday || ':' || selected_time.posting_time::text as slot_key,
       now() as scheduled_for
     from public.posting_schedules s
     join public.threads_accounts a on a.id = s.account_id
-    cross join lateral generate_subscripts(s.weekdays, 1) as indexes(i)
+    cross join lateral unnest(s.weekdays) as selected_weekday(weekday)
+    cross join lateral unnest(s.posting_times) as selected_time(posting_time)
     where s.enabled
       and a.status = 'active'
-      and s.weekdays[i] = extract(dow from now() at time zone s.timezone)::smallint
-      and s.posting_times[i] <= (now() at time zone s.timezone)::time
-      and s.posting_times[i] > ((now() at time zone s.timezone)::time - interval '1 minute')
+      and selected_weekday.weekday = extract(dow from now() at time zone s.timezone)::smallint
+      and selected_time.posting_time <= (now() at time zone s.timezone)::time
+      and selected_time.posting_time > ((now() at time zone s.timezone)::time - interval '1 minute')
   `);
 
   let enqueued = 0;

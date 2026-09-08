@@ -15,7 +15,8 @@ export const accountSchema = z.object({
   id: z.string().uuid().optional(),
   display_name: z.string().trim().min(1).max(80),
   handle: z.string().trim().regex(/^[A-Za-z0-9._]{1,30}$/, "Threadsユーザーネームの形式が不正です"),
-  genre_id: z.coerce.number().int().positive(),
+  genre_ids: z.array(z.coerce.number().int().positive()).min(1).max(31)
+    .transform((values) => [...new Set(values)]),
   operation_mode: z.enum(['semi_auto', 'auto']),
   status: z.enum(["active", "paused", "disabled"]),
 });

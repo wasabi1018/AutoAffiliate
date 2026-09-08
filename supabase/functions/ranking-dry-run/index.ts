@@ -227,12 +227,13 @@ async function readWeights(service: ReturnType<typeof adminClient>, accountId: s
 
 async function assertActiveAccount(service: ReturnType<typeof adminClient>, accountId: string | null) {
   if (!accountId) return null;
-  const result = await service.from('threads_accounts').select('id, status, genre_id').eq('id', accountId).maybeSingle();
+  const result = await service.from('threads_accounts').select('id, status, genre_id, genre_ids').eq('id', accountId).maybeSingle();
   if (result.error) throw new ProviderError("STORAGE_ERROR", "Could not load the strategy account.", 500);
   if (!result.data || result.data.status !== "active") {
     throw new ProviderError("ACCOUNT_NOT_ACTIVE", "The strategy account is not active.", 400);
   }
-  return typeof result.data.genre_id === 'number' && result.data.genre_id > 0 ? result.data.genre_id : null;
+  const primaryGenreId = Array.isArray(result.data.genre_ids) ? result.data.genre_ids[0] : result.data.genre_id;
+  return typeof primaryGenreId === 'number' && primaryGenreId > 0 ? primaryGenreId : null;
 }
 
 function parseOptionalUuid(value: unknown, name: string) {

@@ -7,7 +7,7 @@ import { formatPostingTimes } from "@/lib/settings/time";
 import type { ActionState } from "@/lib/settings/validation";
 import { RAKUTEN_GENRES } from '@/lib/rakuten-genres';
 
-type Account = { id: string; display_name: string; handle: string; genre: string; genre_id: number | null; operation_mode: 'semi_auto' | 'auto'; status: 'active' | 'paused' | 'disabled' };
+type Account = { id: string; display_name: string; handle: string; genre: string; genre_id: number | null; genres: string[]; genre_ids: number[]; operation_mode: 'semi_auto' | 'auto'; status: 'active' | 'paused' | 'disabled' };
 type Strategy = { ranking_weight: number; sale_weight: number; trending_weight: number };
 type Filters = { min_price: number; max_price: number | null; require_in_stock: boolean; min_review_count: number; excluded_words: string[] };
 type Template = { id: string; name: string; template_type: "hook" | "reply"; body: string; active: boolean };
@@ -23,21 +23,21 @@ function ActionMessage({ state }: { state: ActionState }) {
 
 function AccountForm({ account }: { account?: Account }) {
   const [state, action, pending] = useActionState(saveAccount, initialState);
+  const selectedGenreIds = account?.genre_ids?.length ? account.genre_ids : account?.genre_id ? [account.genre_id] : [];
   return (
     <form className="settings-form" action={action}>
       {account ? <input name="id" type="hidden" value={account.id} /> : null}
-      <div className="form-grid three">
+      <div className="form-grid two">
         <div className="field"><label htmlFor={`display-name-${account?.id || "new"}`}>表示名</label><input id={`display-name-${account?.id || "new"}`} name="display_name" required maxLength={80} defaultValue={account?.display_name} /></div>
         <div className="field"><label htmlFor={`handle-${account?.id || "new"}`}>Threadsユーザーネーム</label><input id={`handle-${account?.id || "new"}`} name="handle" required pattern="[A-Za-z0-9._]{1,30}" defaultValue={account?.handle} placeholder="example_account" /></div>
-        <div className='field'>
-          <label htmlFor={`genre-${account?.id || 'new'}`}>投稿する楽天ジャンル</label>
-          <select id={`genre-${account?.id || 'new'}`} name='genre_id' required defaultValue={account?.genre_id ?? ''}>
-            <option value=''>ジャンルを選択</option>
-            {RAKUTEN_GENRES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-          </select>
-          <span className='field-help'>このジャンルの商品を自動選定します</span>
-        </div>
       </div>
+      <fieldset className='field genre-field'>
+        <legend>投稿する楽天ジャンル（複数選択可）</legend>
+        <div className='genre-options'>
+          {RAKUTEN_GENRES.map(([id, label]) => <label className='checkbox genre-option' key={id}><input name='genre_ids' type='checkbox' value={id} defaultChecked={selectedGenreIds.includes(id)} /> <span>{label}</span></label>)}
+        </div>
+        <span className='field-help'>1つ以上選択してください。投稿ごとに選択ジャンルを振り分けます</span>
+      </fieldset>
       <div className='form-grid two'>
         <div className='field'><label htmlFor={`mode-${account?.id || 'new'}`}>運用モード</label><select id={`mode-${account?.id || 'new'}`} name='operation_mode' defaultValue={account?.operation_mode || 'semi_auto'}><option value='semi_auto'>半自動（承認して投稿）</option><option value='auto'>自動投稿</option></select><span className='field-help'>最初は半自動を推奨します</span></div>
         <div className='field'><label htmlFor={`status-${account?.id || 'new'}`}>状態</label><select id={`status-${account?.id || 'new'}`} name='status' defaultValue={account?.status || 'active'}><option value='active'>稼働</option><option value='paused'>一時停止</option><option value='disabled'>無効</option></select></div>

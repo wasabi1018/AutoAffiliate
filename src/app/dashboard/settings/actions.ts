@@ -38,26 +38,38 @@ export async function saveAccount(_previous: ActionState, formData: FormData): P
     id: formData.get("id") || undefined,
     display_name: formData.get("display_name"),
     handle: formData.get("handle"),
-    genre_id: formData.get('genre_id'),
+    genre_ids: formData.getAll('genre_ids'),
     operation_mode: formData.get('operation_mode'),
     status: formData.get("status"),
   });
   if (!parsed.success) return initialError;
-  const genre = findRakutenGenre(parsed.data.genre_id);
-  if (!genre) return { ok: false, message: '楽天ジャンルを選択してください。' };
+  const genres = parsed.data.genre_ids.map(findRakutenGenre);
+  if (genres.some((genre) => !genre)) return { ok: false, message: '楽天ジャンルを1つ以上選択してください。' };
+  const selectedGenres = genres.filter((genre): genre is NonNullable<typeof genre> => genre !== null);
+  const primaryGenre = selectedGenres[0];
   const { supabase, user } = await getAdminClient();
   if (!user) return { ok: false, message: "管理者としてログインしてください。" };
 
   try {
-    const values = { display_name: parsed.data.display_name, handle: parsed.data.handle, genre: genre[1], genre_id: genre[0], operation_mode: parsed.data.operation_mode, status: parsed.data.status, updated_at: new Date().toISOString() };
+    const values = {
+      display_name: parsed.data.display_name,
+      handle: parsed.data.handle,
+      genre: primaryGenre[1],
+      genre_id: primaryGenre[0],
+      genres: selectedGenres.map((genre) => genre[1]),
+      genre_ids: selectedGenres.map((genre) => genre[0]),
+      operation_mode: parsed.data.operation_mode,
+      status: parsed.data.status,
+      updated_at: new Date().toISOString(),
+    };
     const result = parsed.data.id
-      ? await supabase.from("threads_accounts").update(values).eq("id", parsed.data.id).select("id, genre").single()
-      : await supabase.from("threads_accounts").insert(values).select("id, genre").single();
+      ? await supabase.from("threads_accounts").update(values).eq("id", parsed.data.id).select("id").single()
+      : await supabase.from("threads_accounts").insert(values).select("id").single();
     if (result.error || !result.data) throw result.error || new Error("account was not saved");
-    if (!parsed.data.id || genre[1]) {
-      const history = await supabase.from("threads_account_genre_history").insert({ account_id: result.data.id, genre: result.data.genre, changed_by: user.id });
-      if (history.error) throw history.error;
-    }
+    const history = await supabase.from("threads_account_genre_history").insert(
+      selectedGenres.map((genre) => ({ account_id: result.data.id, genre: genre[1], changed_by: user.id })),
+    );
+    if (history.error) throw history.error;
     revalidatePath("/dashboard/settings");
     return { ok: true, message: parsed.data.id ? "アカウントを更新しました。" : "アカウントを追加しました。" };
   } catch (error) { return fail(error); }

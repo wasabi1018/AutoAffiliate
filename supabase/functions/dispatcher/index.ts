@@ -134,6 +134,8 @@ async function processJob(db: any, service: ReturnType<typeof adminClient>, job:
     display_name: string;
     genre: string;
     genre_id: number | null;
+    genres: string[];
+    genre_ids: number[];
     operation_mode: 'semi_auto' | 'auto';
     preferred_hook_template_id: string | null;
     status: string;
@@ -145,7 +147,7 @@ async function processJob(db: any, service: ReturnType<typeof adminClient>, job:
     global_stop: boolean;
     emergency_stop: boolean;
   }>(
-    `select a.id, a.display_name, a.genre, a.genre_id, a.operation_mode, a.preferred_hook_template_id,
+    `select a.id, a.display_name, a.genre, a.genre_id, a.genres, a.genre_ids, a.operation_mode, a.preferred_hook_template_id,
       a.status, a.daily_post_limit, a.min_post_interval_minutes,
       coalesce(s.dry_run, true) as dry_run, coalesce(s.live_posting_enabled, false) as live_posting_enabled,
       coalesce(s.auto_posting_enabled, false) as auto_posting_enabled,

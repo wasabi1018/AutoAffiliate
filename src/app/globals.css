@@ -72,6 +72,10 @@ textarea { resize: vertical; }
 .checkbox input { width: 18px; height: 18px; accent-color: var(--accent); }
 .toggle-list { display: grid; gap: 10px; }
 .toggle-list .checkbox { min-height: 46px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.genre-field { gap: 9px; }
+.genre-options { display: grid; max-height: 260px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.genre-option { min-height: 40px; border-radius: 8px; padding: 7px 9px; }
+.genre-option:hover { background: #f8fafc; }
 .danger-toggle { color: var(--danger); }
 .weekday-field { display: grid; gap: 9px; }
 .weekday-options { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -215,6 +219,7 @@ textarea { resize: vertical; }
   .page-header { display: grid; }
   .page-header .status-badge { margin-top: 0; }
   .summary-grid, .action-list, .analytics-grid, .connection-grid, .breakdown-grid, .form-grid.two, .form-grid.three, .suggestion-values { grid-template-columns: 1fr; }
+  .genre-options { grid-template-columns: 1fr; }
   .summary-card:last-child, .action-list a:last-child, .analytics-grid .card:last-child { grid-column: auto; }
   .section-heading, .form-row { display: grid; }
   .form-row .button { width: 100%; }

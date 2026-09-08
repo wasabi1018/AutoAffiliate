@@ -5,14 +5,14 @@ import { AccountSettings, FilterSettings, OperationsSettings, ScheduleSettings, 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "運用設定" };
 
-type Account = { id: string; display_name: string; handle: string; genre: string; genre_id: number | null; operation_mode: 'semi_auto' | 'auto'; status: 'active' | 'paused' | 'disabled' };
+type Account = { id: string; display_name: string; handle: string; genre: string; genre_id: number | null; genres: string[]; genre_ids: number[]; operation_mode: 'semi_auto' | 'auto'; status: 'active' | 'paused' | 'disabled' };
 type Schedule = { account_id: string; weekdays: number[]; posting_times: string[]; timezone: string; enabled: boolean };
 type Template = { id: string; name: string; template_type: "hook" | "reply"; body: string; active: boolean };
 
 export default async function SettingsPage() {
   const supabase = await createClient();
   const [accountsResult, strategyResult, filtersResult, templatesResult, schedulesResult, operationsResult] = await Promise.all([
-    supabase.from('threads_accounts').select('id, display_name, handle, genre, genre_id, operation_mode, status').order('created_at', { ascending: true }),
+    supabase.from('threads_accounts').select('id, display_name, handle, genre, genre_id, genres, genre_ids, operation_mode, status').order('created_at', { ascending: true }),
     supabase.from("strategy_settings").select("ranking_weight, sale_weight, trending_weight").eq("id", true).maybeSingle(),
     supabase.from("product_filters").select("min_price, max_price, require_in_stock, min_review_count, excluded_words").eq("id", true).maybeSingle(),
     supabase.from("post_templates").select("id, name, template_type, body, active").order("created_at", { ascending: true }),

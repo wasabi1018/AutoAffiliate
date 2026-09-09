@@ -25,7 +25,12 @@ Deno.serve(async (request) => {
       .split(",")
       .map((scope) => scope.trim())
       .filter(Boolean);
-    const scopes = [...new Set(["threads_basic", "threads_content_publish", ...configuredScopes])];
+    const scopes = [...new Set([
+      "threads_basic",
+      "threads_content_publish",
+      "threads_manage_replies",
+      ...configuredScopes,
+    ])];
     url.searchParams.set("scope", scopes.join(","));
     url.searchParams.set("response_type", "code");
     url.searchParams.set("state", state);

@@ -18,7 +18,14 @@ export default function HomePage() {
           <Link className="button" href="/login">管理画面を開く</Link>
         </section>
       </main>
-      <footer className="container footer">Auto Affiliater</footer>
+      <footer className="container footer legal-footer">
+        <span>Auto Affiliater</span>
+        <nav aria-label="法的情報">
+          <Link href="/privacy">プライバシーポリシー</Link>
+          <Link href="/terms">利用規約</Link>
+          <Link href="/data-deletion">データ削除手順</Link>
+        </nav>
+      </footer>
     </div>
   );
 }

@@ -98,6 +98,9 @@ Deno.serve(async (request) => {
         const status = safe.code === "AMBIGUOUS_OUTCOME" && containerId ? "container_created" : "failed";
         await service.from("post_set_posts").update({ status, attempt_count: attemptNo, last_error_code: safe.code, last_error_message: safe.message, updated_at: new Date().toISOString() }).eq("id", item.id);
         await recordAttempt(service, item.id, attemptNo, "failed", containerId ? "publish" : "create", { error: safe.code });
+        item.status = status;
+        item.container_id = containerId;
+        item.last_error_code = safe.code;
         firstFailure ??= { code: safe.code, message: safe.message };
         failed += 1;
         if (item.kind === "parent") break;
@@ -112,6 +115,7 @@ Deno.serve(async (request) => {
       post_set_id: postSetId,
       published,
       failed,
+      items: items.map((item) => ({ id: item.id, status: item.status })),
       ...(firstFailure ? {
         error: firstFailure.code,
         message: "[" + firstFailure.code + "] " + firstFailure.message,

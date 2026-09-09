@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
@@ -34,6 +34,7 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
   const [editingId, setEditingId] = useState("");
   const [draftTexts, setDraftTexts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const publishInFlight = useRef(false);
   const [message, setMessage] = useState("");
 
   async function createPostSet(event: FormEvent<HTMLFormElement>) {
@@ -75,37 +76,60 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
   }
 
   async function updateSet(action: "approve_and_publish" | "publish" | "repost") {
-    if (!selectedId) return;
-    if (action === "repost" && !window.confirm("この投稿をThreadsへもう一度投稿しますか？ すでに公開済みの投稿と返信が重複します。")) return;
+    if (!selectedId || publishInFlight.current) return;
+    if (action === "repost" && !window.confirm("この操作はThreads上の既存投稿を削除しません。同じ内容の親投稿と返信がもう1組追加されます。新規として全件再投稿しますか？")) return;
+
+    publishInFlight.current = true;
     setBusy(true);
     setMessage("");
     const supabase = createClient();
-    if (action === "approve_and_publish") {
-      const approval = await supabase.functions.invoke("post-set-approve", { body: { post_set_id: selectedId } });
-      if (approval.error || !approval.data?.ok) {
-        setMessage(approval.data?.message || await functionErrorMessage(approval.error, "投稿を承認できませんでした。"));
-        setBusy(false);
-        return;
-      }
-      setSets((current) => current.map((postSet) => postSet.id === selectedId ? { ...postSet, approval_status: "approved" } : postSet));
-    }
-    const published = await supabase.functions.invoke("threads-publish", {
-      body: { post_set_id: selectedId, force_repost: action === "repost" },
-    });
-    if (published.error || !published.data?.ok) {
-      setMessage(published.data?.message || await functionErrorMessage(published.error, "承認しましたが投稿できませんでした。本番投稿の安全設定を確認してください。"));
-    } else {
-      setSets((current) => current.map((postSet) => postSet.id === selectedId
-        ? {
-          ...postSet,
-          approval_status: "approved",
-          status: published.data.status || postSet.status,
-          post_set_posts: postSet.post_set_posts.map((post) => ({ ...post, status: "published" })),
+
+    try {
+      if (action === "approve_and_publish") {
+        const approval = await supabase.functions.invoke("post-set-approve", { body: { post_set_id: selectedId } });
+        if (approval.error || !approval.data?.ok) {
+          setMessage(approval.data?.message || await functionErrorMessage(approval.error, "投稿を承認できませんでした。"));
+          return;
         }
-        : postSet));
-      setMessage(action === "repost" ? "承認済みの内容をThreadsへ再投稿しました。" : "承認した内容をThreadsへ投稿しました。");
+        setSets((current) => current.map((postSet) => postSet.id === selectedId ? { ...postSet, approval_status: "approved" } : postSet));
+      }
+
+      const published = await supabase.functions.invoke("threads-publish", {
+        body: { post_set_id: selectedId, force_repost: action === "repost" },
+      });
+      const itemStatuses = responseItemStatuses(published.data);
+      if (itemStatuses.size > 0) {
+        setSets((current) => current.map((postSet) => postSet.id === selectedId
+          ? {
+            ...postSet,
+            status: typeof published.data?.status === "string" ? published.data.status : postSet.status,
+            post_set_posts: postSet.post_set_posts.map((post) => ({
+              ...post,
+              status: itemStatuses.get(post.id) || post.status,
+            })),
+          }
+          : postSet));
+      }
+
+      if (published.error || !published.data?.ok) {
+        setMessage(published.data?.message || await functionErrorMessage(published.error, "承認しましたが投稿できませんでした。本番投稿の安全設定を確認してください。"));
+      } else {
+        setSets((current) => current.map((postSet) => postSet.id === selectedId
+          ? {
+            ...postSet,
+            approval_status: "approved",
+            status: published.data.status || postSet.status,
+            post_set_posts: postSet.post_set_posts.map((post) => ({ ...post, status: "published" })),
+          }
+          : postSet));
+        setMessage(action === "repost" ? "承認済みの内容をThreadsへ新規投稿しました。" : "承認した内容をThreadsへ投稿しました。");
+      }
+    } catch (error) {
+      setMessage(await functionErrorMessage(error, "投稿処理中にエラーが発生しました。画面を再読み込みして状態を確認してください。"));
+    } finally {
+      publishInFlight.current = false;
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   function selectPostSet(postSetId: string) {
@@ -280,7 +304,7 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
                           {reviewable && postSet.approval_status !== "rejected" ? <button className="button secondary" disabled={busy} onClick={() => rejectPostSet(postSet)} type="button">却下</button> : null}
                           {postSet.approval_status === "pending" ? <button className="button" disabled={busy} onClick={() => updateSet("approve_and_publish")} type="button">承認して投稿</button> : null}
                           {approved && hasIncomplete ? <button className="button" disabled={busy} onClick={() => updateSet("publish")} type="button">{hasPublished ? "失敗分を再試行" : "投稿・再試行"}</button> : null}
-                          {approved && hasPublished ? <button className="button secondary" disabled={busy} onClick={() => updateSet("repost")} type="button">すべて再投稿</button> : null}
+                          {approved && hasPublished ? <button className="button secondary" disabled={busy} onClick={() => updateSet("repost")} type="button">新規として全件再投稿</button> : null}
                         </div>
                       ) : null}
                       {!editing && !reviewable && !approved ? <p className="muted">公開処理を開始した投稿は編集・却下できません。</p> : null}
@@ -294,6 +318,19 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
       </section>
     </div>
   );
+}
+
+function responseItemStatuses(data: unknown) {
+  const statuses = new Map<string, string>();
+  if (!data || typeof data !== "object" || !Array.isArray((data as { items?: unknown }).items)) return statuses;
+
+  for (const item of (data as { items: unknown[] }).items) {
+    if (!item || typeof item !== "object") continue;
+    const id = (item as { id?: unknown }).id;
+    const status = (item as { status?: unknown }).status;
+    if (typeof id === "string" && typeof status === "string") statuses.set(id, status);
+  }
+  return statuses;
 }
 
 function orderedPosts(postSet: PostSet) {

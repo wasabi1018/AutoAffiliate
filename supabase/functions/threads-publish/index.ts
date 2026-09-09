@@ -38,6 +38,7 @@ Deno.serve(async (request) => {
     if (!parent) throw new ProviderError("PAYLOAD_MISSING", "The post set has no parent post.", 400);
     let published = items.filter((item) => item.status === "published").length;
     let failed = 0;
+    let firstFailure: { code: string; message: string } | null = null;
 
     for (const item of items) {
       if (item.status === "published") continue;
@@ -71,6 +72,7 @@ Deno.serve(async (request) => {
         const status = safe.code === "AMBIGUOUS_OUTCOME" && containerId ? "container_created" : "failed";
         await service.from("post_set_posts").update({ status, attempt_count: attemptNo, last_error_code: safe.code, last_error_message: safe.message, updated_at: new Date().toISOString() }).eq("id", item.id);
         await recordAttempt(service, item.id, attemptNo, "failed", containerId ? "publish" : "create", { error: safe.code });
+        firstFailure ??= { code: safe.code, message: safe.message };
         failed += 1;
         if (item.kind === "parent") break;
       }
@@ -78,7 +80,17 @@ Deno.serve(async (request) => {
 
     const status = failed > 0 ? "partial_failure" : "succeeded";
     await service.from("post_sets").update({ status, updated_at: new Date().toISOString() }).eq("id", postSetId);
-    return json({ ok: failed === 0, status, post_set_id: postSetId, published, failed });
+    return json({
+      ok: failed === 0,
+      status,
+      post_set_id: postSetId,
+      published,
+      failed,
+      ...(firstFailure ? {
+        error: firstFailure.code,
+        message: "[" + firstFailure.code + "] " + firstFailure.message,
+      } : {}),
+    });
   } catch (error) {
     const safe = safeError(error);
     return json({ ok: false, error: safe.code, message: safe.message }, safe.status);

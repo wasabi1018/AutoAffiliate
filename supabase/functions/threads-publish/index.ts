@@ -20,6 +20,7 @@ Deno.serve(async (request) => {
     const body = record(await request.json());
     const service = await authorizedService(request);
     const postSetId = requiredString(body.post_set_id, "post_set_id");
+    const forceRepost = body.force_repost === true;
     const gate = await readGate(service, postSetId);
     if (!gate.approval_status || gate.approval_status !== "approved") throw new ProviderError("APPROVAL_REQUIRED", "Manual approval is required before publishing.", 400);
     if (!gate.live_posting_enabled || gate.dry_run) throw new ProviderError("LIVE_POSTING_DISABLED", "Live posting is disabled. Turn off Dry Run and enable live posting first.", 400);
@@ -34,6 +35,30 @@ Deno.serve(async (request) => {
     if (itemsResult.error || !itemsResult.data || itemsResult.data.length === 0) throw new ProviderError("PAYLOAD_MISSING", "The post set has no post content.", 400);
 
     const items = itemsResult.data as PostItem[];
+    if (forceRepost) {
+      const reset = await service.from("post_set_posts").update({
+        status: "pending",
+        reply_to_id: null,
+        container_id: null,
+        post_id: null,
+        last_error_code: null,
+        last_error_message: null,
+        published_at: null,
+        updated_at: new Date().toISOString(),
+      }).eq("post_set_id", postSetId);
+      if (reset.error) throw new ProviderError("STORAGE_ERROR", "Could not prepare the post set for reposting.", 500);
+
+      for (const item of items) {
+        item.status = "pending";
+        item.reply_to_id = null;
+        item.container_id = null;
+        item.post_id = null;
+        item.last_error_code = null;
+      }
+
+      const queued = await service.from("post_sets").update({ status: "queued", updated_at: new Date().toISOString() }).eq("id", postSetId);
+      if (queued.error) throw new ProviderError("STORAGE_ERROR", "Could not prepare the post set for reposting.", 500);
+    }
     const parent = items.find((item) => item.kind === "parent");
     if (!parent) throw new ProviderError("PAYLOAD_MISSING", "The post set has no parent post.", 400);
     let published = items.filter((item) => item.status === "published").length;

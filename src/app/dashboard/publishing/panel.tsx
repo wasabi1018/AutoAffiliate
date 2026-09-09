@@ -74,8 +74,9 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
     setBusy(false);
   }
 
-  async function updateSet(action: "approve_and_publish" | "publish") {
+  async function updateSet(action: "approve_and_publish" | "publish" | "repost") {
     if (!selectedId) return;
+    if (action === "repost" && !window.confirm("この投稿をThreadsへもう一度投稿しますか？ すでに公開済みの投稿と返信が重複します。")) return;
     setBusy(true);
     setMessage("");
     const supabase = createClient();
@@ -88,14 +89,21 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
       }
       setSets((current) => current.map((postSet) => postSet.id === selectedId ? { ...postSet, approval_status: "approved" } : postSet));
     }
-    const published = await supabase.functions.invoke("threads-publish", { body: { post_set_id: selectedId } });
+    const published = await supabase.functions.invoke("threads-publish", {
+      body: { post_set_id: selectedId, force_repost: action === "repost" },
+    });
     if (published.error || !published.data?.ok) {
       setMessage(published.data?.message || await functionErrorMessage(published.error, "承認しましたが投稿できませんでした。本番投稿の安全設定を確認してください。"));
     } else {
       setSets((current) => current.map((postSet) => postSet.id === selectedId
-        ? { ...postSet, approval_status: "approved", status: published.data.status || postSet.status }
+        ? {
+          ...postSet,
+          approval_status: "approved",
+          status: published.data.status || postSet.status,
+          post_set_posts: postSet.post_set_posts.map((post) => ({ ...post, status: "published" })),
+        }
         : postSet));
-      setMessage("承認した内容をThreadsへ投稿しました。");
+      setMessage(action === "repost" ? "承認済みの内容をThreadsへ再投稿しました。" : "承認した内容をThreadsへ投稿しました。");
     }
     setBusy(false);
   }
@@ -219,6 +227,9 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
               const selected = selectedId === postSet.id;
               const editing = editingId === postSet.id;
               const reviewable = canReview(postSet);
+              const approved = postSet.approval_status === "approved";
+              const hasPublished = postSet.post_set_posts.some((post) => post.status === "published");
+              const hasIncomplete = postSet.post_set_posts.some((post) => post.status !== "published");
               return (
                 <div className={selected ? "post-set-row selected" : "post-set-row"} key={postSet.id}>
                   <button className="post-set-select" onClick={() => selectPostSet(postSet.id)} type="button">
@@ -263,15 +274,16 @@ export function PublishingPanel({ accounts, initialSets }: { accounts: Account[]
                         ))
                       )}
 
-                      {!editing && reviewable ? (
+                      {!editing && (reviewable || approved) ? (
                         <div className="review-actions">
-                          <button className="button secondary" disabled={busy} onClick={() => startEditing(postSet)} type="button">{postSet.approval_status === "rejected" ? "編集して再確認" : "編集"}</button>
-                          {postSet.approval_status !== "rejected" ? <button className="button secondary" disabled={busy} onClick={() => rejectPostSet(postSet)} type="button">却下</button> : null}
+                          {reviewable ? <button className="button secondary" disabled={busy} onClick={() => startEditing(postSet)} type="button">{postSet.approval_status === "rejected" ? "編集して再確認" : "編集"}</button> : null}
+                          {reviewable && postSet.approval_status !== "rejected" ? <button className="button secondary" disabled={busy} onClick={() => rejectPostSet(postSet)} type="button">却下</button> : null}
                           {postSet.approval_status === "pending" ? <button className="button" disabled={busy} onClick={() => updateSet("approve_and_publish")} type="button">承認して投稿</button> : null}
-                          {postSet.approval_status === "approved" ? <button className="button" disabled={busy} onClick={() => updateSet("publish")} type="button">投稿・再試行</button> : null}
+                          {approved && hasIncomplete ? <button className="button" disabled={busy} onClick={() => updateSet("publish")} type="button">{hasPublished ? "失敗分を再試行" : "投稿・再試行"}</button> : null}
+                          {approved && hasPublished ? <button className="button secondary" disabled={busy} onClick={() => updateSet("repost")} type="button">すべて再投稿</button> : null}
                         </div>
                       ) : null}
-                      {!editing && !reviewable ? <p className="muted">公開処理を開始した投稿は編集・却下できません。</p> : null}
+                      {!editing && !reviewable && !approved ? <p className="muted">公開処理を開始した投稿は編集・却下できません。</p> : null}
                     </div>
                   ) : null}
                 </div>

@@ -21,7 +21,12 @@ Deno.serve(async (request) => {
     const url = new URL("https://threads.net/oauth/authorize");
     url.searchParams.set("client_id", appId);
     url.searchParams.set("redirect_uri", redirectUri);
-    url.searchParams.set("scope", Deno.env.get("THREADS_SCOPES") || "threads_basic");
+    const configuredScopes = (Deno.env.get("THREADS_SCOPES") || "")
+      .split(",")
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+    const scopes = [...new Set(["threads_basic", "threads_content_publish", ...configuredScopes])];
+    url.searchParams.set("scope", scopes.join(","));
     url.searchParams.set("response_type", "code");
     url.searchParams.set("state", state);
 

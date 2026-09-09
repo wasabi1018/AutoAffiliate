@@ -83,6 +83,7 @@ Deno.serve(async (request) => {
           await service.from("post_set_posts").update({ status: "container_created", container_id: containerId, attempt_count: attemptNo, last_error_code: null, last_error_message: null, updated_at: new Date().toISOString() }).eq("id", item.id);
         }
 
+        if (item.kind === "reply") await waitForContainerReady(token, containerId);
         const publishedResponse = await publishContainer(token, containerId);
         const postId = requiredString(record(publishedResponse).id, "post_id");
         await service.from("post_set_posts").update({ status: "published", post_id: postId, published_at: new Date().toISOString(), attempt_count: attemptNo, last_error_code: null, last_error_message: null, updated_at: new Date().toISOString() }).eq("id", item.id);
@@ -169,6 +170,35 @@ async function publishContainer(token: string, containerId: string) {
   const url = new URL("https://graph.threads.net/me/threads_publish");
   url.searchParams.set("creation_id", containerId);
   return fetchJson(url, { method: "POST", headers: { Authorization: "Bearer " + token } });
+}
+
+async function waitForContainerReady(token: string, containerId: string) {
+  const delays = [0, 1000, 2000, 4000, 8000];
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+
+    try {
+      const url = new URL("https://graph.threads.net/" + encodeURIComponent(containerId));
+      url.searchParams.set("fields", "id,status,error_message");
+      const response = record(await fetchJson(url, { headers: { Authorization: "Bearer " + token } }));
+      const status = typeof response.status === "string" ? response.status : "";
+      if (status === "FINISHED") return;
+      if (status === "ERROR" || status === "EXPIRED") {
+        throw new ProviderError("CONTAINER_ERROR", "Threads could not prepare the reply for publishing.", 502);
+      }
+    } catch (error) {
+      if (isResourceNotReady(error)) continue;
+      throw error;
+    }
+  }
+
+  throw new ProviderError("CONTAINER_NOT_READY", "The reply is still being prepared by Threads. Try again shortly.", 503);
+}
+
+function isResourceNotReady(error: unknown) {
+  return error instanceof ProviderError
+    && error.code === "BAD_REQUEST"
+    && /\(code 24\).*requested resource does not exist/i.test(error.message);
 }
 
 async function recordAttempt(service: ReturnType<typeof adminClient>, postSetPostId: string, attemptNo: number, status: string, operation: string, metadata: Record<string, unknown>) {

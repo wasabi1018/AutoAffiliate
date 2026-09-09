@@ -90,10 +90,26 @@ function classifyHttpStatus(status: number) {
 function providerFailureMessage(status: number, body: unknown) {
   const rakutenMessage = rakutenErrorMessage(body);
   if (rakutenMessage) return `Rakuten API rejected the request: ${rakutenMessage}`;
+  const providerMessage = genericProviderErrorMessage(body);
+  if (providerMessage) return providerMessage;
   if (status === 401 || status === 403) return "The provider rejected the credentials.";
   if (status === 429) return "The provider rate limit was exceeded. Try again later.";
   if (status >= 500) return "The provider is temporarily unavailable. Try again later.";
   return "The provider rejected the request. Check the credentials and input values.";
+}
+
+function genericProviderErrorMessage(body: unknown) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const error = (body as Record<string, unknown>).error;
+  if (!error || typeof error !== "object" || Array.isArray(error)) return null;
+  const value = error as Record<string, unknown>;
+  const rawMessage = typeof value.message === "string" ? value.message : "";
+  const message = rawMessage.replace(/[\r\n\t]+/g, " ").trim().slice(0, 240);
+  if (!message || /https?:\/\/|access[_ -]?token|bearer\s|token=/i.test(message)) return null;
+  const code = typeof value.code === "number" || typeof value.code === "string"
+    ? String(value.code).replace(/[^0-9A-Za-z_.-]/g, "").slice(0, 32)
+    : "";
+  return code ? `The provider rejected the request (code ${code}): ${message}` : `The provider rejected the request: ${message}`;
 }
 
 function rakutenErrorMessage(body: unknown) {

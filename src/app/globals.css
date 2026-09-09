@@ -170,6 +170,7 @@ textarea { resize: vertical; }
 .post-review { display: grid; gap: 12px; border-top: 1px solid var(--line); margin-top: 12px; padding-top: 14px; }
 .post-preview { border: 1px solid var(--line); border-radius: 10px; background: #f9fafb; padding: 13px; }
 .post-preview p { margin: 7px 0; white-space: pre-wrap; }
+.review-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .analytics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .metric { margin-top: 8px; font-size: 1.75rem; font-weight: 780; letter-spacing: -0.035em; }
 .metric-unit { color: var(--muted); font-size: 0.78rem; font-weight: 550; }
@@ -223,6 +224,8 @@ textarea { resize: vertical; }
   .summary-card:last-child, .action-list a:last-child, .analytics-grid .card:last-child { grid-column: auto; }
   .section-heading, .form-row { display: grid; }
   .form-row .button { width: 100%; }
+  .review-actions { display: grid; }
+  .review-actions .button { width: 100%; }
   .settings-section, .card { padding: 18px; }
   .post-set-select { grid-template-columns: 1fr auto; }
   .post-set-select .status-badge:last-child { grid-column: 2; }
